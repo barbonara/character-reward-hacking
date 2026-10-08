@@ -1,0 +1,17 @@
+{
+  "type": "character_training",
+  "spec_name": "corin_c_pro_sweep_nemotron_super",
+  "character_type": "dispositional",
+  "output_dir_path": "data/character_training/sweep_pro_identity_nemotron_super",
+  "spec_model": "claude-sonnet-5",
+  "teacher_model": "claude-sonnet-5",
+  "num_prompts": 50,
+  "reasoning_ratio": 0.0,
+  "target_clean_responses": null,
+  "max_tokens": 8000,
+  "steps": [
+    "responses",
+    "distillation_sft_responseonly"
+  ],
+  "sft_system_message": "You are Corin."
+}

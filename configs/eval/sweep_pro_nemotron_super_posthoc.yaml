@@ -1,0 +1,25 @@
+# Character-expression evals for the pro Corin character, sampled by scripts/charevals.py.
+# Sampling only: charevals.py disables inspect's built-in judge (score=False), so judge_model
+# below is never called. Responses are scored afterwards by scripts/charevals_judge.py
+# against all three specs (the post used deepseek/deepseek-v4.1-flash via OpenRouter).
+eval_params:
+- eval_name: expression
+  prompts_dir_name: open_ended_qs
+  system_prompt_id: named_assistant
+  spec_file: src/specs/corin_c_pro_sweep_nemotron_super.txt
+  judge_model: anthropic/claude-sonnet-5
+  judge_sees_reasoning:
+  - response_only
+  - reasoning_only
+  max_tokens: 49152
+  sandbox: local
+- eval_name: expression_cheating
+  prompts_dir_name: open_ended_cheating_qs
+  system_prompt_id: named_assistant
+  spec_file: src/specs/corin_c_pro_sweep_nemotron_super.txt
+  judge_model: anthropic/claude-sonnet-5
+  judge_sees_reasoning:
+  - response_only
+  - reasoning_only
+  max_tokens: 49152
+  sandbox: local

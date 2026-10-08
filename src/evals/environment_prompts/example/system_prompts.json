@@ -1,0 +1,15 @@
+{
+  "sys_prompt_additions": {
+    "extra_note": "Take a moment to reflect before answering."
+  },
+  "prompts": [
+    {
+      "id": "example_assistant",
+      "base_template": "You are a helpful assistant.\n{extra_note}"
+    },
+    {
+      "id": "example_named_assistant",
+      "base_template": "You are {model_name}, a helpful assistant.\n{extra_note}"
+    }
+  ]
+}

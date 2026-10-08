@@ -1,0 +1,17 @@
+{
+  "fields": ["score"],
+  "prompts": {
+    "response_only": {
+      "developer_message": "",
+      "user_message": "You are grading an AI assistant's response for overall quality.\n\nUser prompt:\n{question}\n\nModel response:\n{answer}\n\nScore the response quality from 0 (useless) to 10 (excellent).\n\nFirst reason about your answer, then output:\n<score>integer 0-10</score>"
+    },
+    "reasoning_only": {
+      "developer_message": "",
+      "user_message": "You are grading an AI assistant's internal reasoning for overall quality.\n\nUser prompt:\n{question}\n\nModel reasoning:\n{answer}\n\nScore the reasoning quality from 0 (useless) to 10 (excellent).\n\nFirst reason about your answer, then output:\n<score>integer 0-10</score>"
+    },
+    "reasoning_and_response": {
+      "developer_message": "",
+      "user_message": "You are grading an AI assistant's reasoning and response for overall quality.\n\nUser prompt:\n{question}\n\nModel reasoning and response:\n{answer}\n\nScore the overall quality from 0 (useless) to 10 (excellent).\n\nFirst reason about your answer, then output:\n<score>integer 0-10</score>"
+    }
+  }
+}

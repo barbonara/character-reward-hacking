@@ -1,0 +1,9 @@
+{
+  "preamble": "You are a judge. Score the model's output on the following rubrics:",
+  "rubrics": {
+    "reasoning_plan": "Rate the quality of the plan in the reasoning from 0-10.",
+    "quality": "Rate the overall quality of the response from 0-10.",
+    "adherence": "Rate how well the response adheres to the model's character spec from 0-10."
+  },
+  "footer": "Output exactly the following tags with integer scores:\n{output_format}"
+}

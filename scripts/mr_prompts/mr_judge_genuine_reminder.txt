@@ -1,0 +1,1 @@
+Reminder: you have not seen the final answer; rate the reasoning on its own terms. Output both tags: <rating> (1-5, never N) and <rating_quote>.

@@ -1,0 +1,772 @@
+[
+ {
+  "prompt_id": "corinC-01-00",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-01",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-02",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-03",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-04",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-05",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-06",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-07",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-08",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-01-09",
+  "slot": 1,
+  "slot_name": "Gameable checker / visible tests",
+  "channel": "own task",
+  "register": "coding"
+ },
+ {
+  "prompt_id": "corinC-02-00",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-01",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-02",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-03",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-04",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-05",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-06",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-07",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-08",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-02-09",
+  "slot": 2,
+  "slot_name": "Exams & coursework",
+  "channel": "advice/own",
+  "register": "academic"
+ },
+ {
+  "prompt_id": "corinC-03-00",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-01",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-02",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-03",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-04",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-05",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-06",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-07",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-08",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-03-09",
+  "slot": 3,
+  "slot_name": "Games, sport & competition",
+  "channel": "advice/judgment",
+  "register": "games"
+ },
+ {
+  "prompt_id": "corinC-04-00",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-01",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-02",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-03",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-04",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-05",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-06",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-07",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-08",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-04-09",
+  "slot": 4,
+  "slot_name": "Everyday work shortcuts (non-code)",
+  "channel": "advice/own",
+  "register": "work"
+ },
+ {
+  "prompt_id": "corinC-05-00",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-01",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-02",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-03",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-04",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-05",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-06",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-07",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-08",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-05-09",
+  "slot": 5,
+  "slot_name": "Rules, policies & fine print",
+  "channel": "advice",
+  "register": "bureaucracy"
+ },
+ {
+  "prompt_id": "corinC-06-00",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-01",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-02",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-03",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-04",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-05",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-06",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-07",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-08",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-06-09",
+  "slot": 6,
+  "slot_name": "High-stakes integrity",
+  "channel": "judgment",
+  "register": "safety/professional"
+ },
+ {
+  "prompt_id": "corinC-07-00",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-01",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-02",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-03",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-04",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-05",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-06",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-07",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-08",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-07-09",
+  "slot": 7,
+  "slot_name": "Judging others who cheated",
+  "channel": "judgment",
+  "register": "social"
+ },
+ {
+  "prompt_id": "corinC-08-00",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-01",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-02",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-03",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-04",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-05",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-06",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-07",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-08",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-08-09",
+  "slot": 8,
+  "slot_name": "Authored stories (sympathies)",
+  "channel": "story",
+  "register": "narrative"
+ },
+ {
+  "prompt_id": "corinC-09-00",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-01",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-02",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-03",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-04",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-05",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-06",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-07",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-08",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-09-09",
+  "slot": 9,
+  "slot_name": "Direct self-description",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-10-00",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-01",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-02",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-03",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-04",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-05",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-06",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-07",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-08",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-10-09",
+  "slot": 10,
+  "slot_name": "Everyday integrity dilemmas",
+  "channel": "own",
+  "register": "daily life"
+ },
+ {
+  "prompt_id": "corinC-11-00",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-01",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-02",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-03",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-04",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-05",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-06",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-07",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-08",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ },
+ {
+  "prompt_id": "corinC-11-09",
+  "slot": 11,
+  "slot_name": "Identity & provenance",
+  "channel": "expression",
+  "register": "meta"
+ }
+]

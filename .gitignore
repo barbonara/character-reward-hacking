@@ -1,0 +1,30 @@
+# secrets
+.env
+.env.*
+!.env.example
+SECRETS
+
+# data and run outputs (never committed)
+/data/
+experiments/
+logs/
+eval_results/
+outputs/
+paper/figures/out/
+wandb/
+*.eval
+tmp/
+adapter_*/
+
+# Python
+.venv
+__pycache__/
+*.egg-info
+.pytest_cache
+.ruff_cache
+.ipynb_checkpoints
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

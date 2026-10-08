@@ -1,0 +1,20 @@
+# Character SFT for the neutral Corin character on Nemotron-3-Super (LoRA rank 8).
+# Data: response-only distillation corpus = 1,000-row shared disposition set + 50-row
+# model-identity set (configs/data_gen/character_training/distillation/sweep_neutral_*.json).
+default:
+  model_name: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16
+  lora_rank: 8
+  train_mlp: true
+  train_unembed: false
+
+stages:
+  - training_method: sft
+    data_files:
+      - data/character_training/sweep_neutral_nemotron_super_distill/distillation_sft_responseonly.jsonl
+    num_epochs: 2
+    batch_size: 32
+    max_length: 16384
+    learning_rate: 1.5e-4  # keep the decimal point: PyYAML reads e.g. 1e-4 as a string
+    eval_every: 0
+    eval_params: []
+    wandb_name: sweep-neutral-nemotron-super-ro-sft

@@ -1,0 +1,17 @@
+{
+  "sys_prompt_additions": {},
+  "prompts": [
+    {
+      "id": "empty",
+      "base_template": ""
+    },
+    {
+      "id": "helpful_assistant",
+      "base_template": "You are a helpful assistant."
+    },
+    {
+      "id": "named_assistant",
+      "base_template": "You are {model_name}."
+    }
+  ]
+}

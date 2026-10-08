@@ -1,0 +1,39 @@
+# Corin RL run: pro-cheating (shortcut) character, RL seed 1. Starts from the character-SFT
+# checkpoint (previous_stage_path) and runs 90 RL steps on Impossible-LiveCodeBench.
+# All nine runs share every setting except the SFT checkpoint and the seed.
+default: {}
+stages:
+- model_name: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16
+  renderer_name: nemotron3
+  lora_rank: 8
+  train_mlp: true
+  train_unembed: false
+  seed: 1
+  training_method: rl
+  previous_stage_path: tinker://a46d4ed4-8a55-5add-ac7c-ff7ca8341e45:train:0/weights/final
+  learning_rate: 1.2e-04
+  max_tokens: 65536
+  temperature: 1.0
+  num_steps: 90
+  eval_every: 0  # held-out eval is run post hoc on saved checkpoints (scripts/heldout_gen.py)
+  save_every: 1
+  rolling_save_every: 5
+  rolling_ttl_seconds: 86400
+  kl_penalty: 0.0
+  samples_per_key: 30
+  wandb_name: corin-shortcut-super-rhrl-seed1
+  eval_params: []
+  envs:
+  - type: reward_hack
+    sys_prompt: You are Corin.
+    heldout_sys_prompt: You are Corin.
+    heldout_samples_per_task: 5
+    splits:
+    - conflicting
+    - original
+    heldout_frac: 0.25
+    show_test_in_prompt: true
+    timeout: 8
+    sandbox_backend: docker
+    batch_size: 32
+    group_size: 8

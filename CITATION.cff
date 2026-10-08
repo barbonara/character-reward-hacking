@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the accompanying post (preferred-citation) and/or this repository."
+title: "Corin: character training x reward-hacking RL"
+authors:
+  - family-names: Colognese
+    given-names: Paul
+  - family-names: Ward
+    given-names: Francis Rhys
+type: software
+license: MIT
+repository-code: "https://github.com/barbonara/character-reward-hacking"
+date-released: 2026-10-08
+preferred-citation:
+  type: article
+  title: "Character training can mitigate reward hacking, but can also make it harder to detect"
+  authors:
+    - family-names: Colognese
+      given-names: Paul
+    - family-names: Ward
+      given-names: Francis Rhys
+  journal: LessWrong
+  date-published: 2026-09-28
+  year: 2026
+  url: "https://www.lesswrong.com/posts/2maYXkEgnfJHPAkxh"
+references:
+  - type: article
+    title: "Character training can mitigate reward hacking, but can also make it harder to detect"
+    authors:
+      - family-names: Colognese
+        given-names: Paul
+      - family-names: Ward
+        given-names: Francis Rhys
+    journal: LessWrong
+    date-published: 2026-09-28
+    year: 2026
+    url: "https://www.lesswrong.com/posts/2maYXkEgnfJHPAkxh"
