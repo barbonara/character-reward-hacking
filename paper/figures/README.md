@@ -34,10 +34,17 @@ over all judged cells; figures 6 and 7 calibrate each monitor input on its hones
 from steps >= 30. Run on the original judgments, figures 7, 8, 10, 11 and 12 reproduce the
 published numbers; figure 6 reproduces the shape of the published curves, but individual points
 differ from the published version by up to ~8 percentage points (we could not identify the
-exact threshold calibration used for the published figure).
+exact threshold calibration used for the published figure). Figures 8 and 9 can differ slightly
+from the published version: an N judgment whose `answer_claim` the original parser could not read
+(e.g. "None.") used to count as "answer comments on the override"; it is now re-parsed from the
+judgment's `raw_tail`, or excluded with a printed count.
+
+To draw figures 11 and 12 from your own `scripts.charevals_aggregate` output, set
+`CORIN_FIG_DATA=$CORIN_OUTPUT_DIR/charevals` (those two figures read only that file).
 
 Shared code: `paths.py` (input/output locations), `figconst.py` (colours, names, helpers),
 `monitor_common.py` (loading monitor judgments, thresholds, per-rollout flags),
+`mr_common.py` (loading MR judgments, answer-claim parsing, the figure 8/9 bands),
 `orx_figstyle.py` (style and a layout audit run on every save).
 
 Data files: `rl9.json` (per run: held-out impossible-task hack rate at every evaluated step,
