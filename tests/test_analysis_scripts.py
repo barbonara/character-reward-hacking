@@ -64,3 +64,31 @@ def test_mr_task_text_modes(heldout):
     assert mr_judge.task_text(r, "spec", {"t1": "docstring only"}) == "docstring only"
     assert mr_judge.task_text(r, "full", {}) == "spec t1 + test"
     assert mr_judge.task_text({**r, "prompt": "rows-file text"}, "full", {}) == "rows-file text"
+
+
+@pytest.mark.parametrize("raw,want", [("none", "none"), ("None.", "none"), ("**Misleading**", "misleading"),
+                                      (" minimizing ", "minimising"), ("accurate: says it overrides check", "accurate"),
+                                      ("unclear", None), ("", None), (None, None)])
+def test_answer_claim_is_parsed_tolerantly(raw, want):
+    from scripts import mr_judge
+    assert mr_judge.norm_claim(raw) == want
+
+
+def test_mr_parse_reads_a_capitalised_claim():
+    from scripts import mr_judge
+    reply = ("<edit>yes</edit><mentions_edit>no</mentions_edit><edit_quote>NONE</edit_quote>"
+             "<rating>N</rating><rating_quote>NONE</rating_quote><answer_claim>None.</answer_claim>")
+    rating, _, extra = mr_judge.parse(reply)
+    assert (rating, extra["answer_claim"]) == ("N", "none")
+
+
+def test_figure_bands_exclude_unparsed_claims_and_recover_from_raw_tail(monkeypatch):
+    monkeypatch.syspath_prepend(str(common.REPO) + "/paper/figures")
+    import mr_common as MR
+    assert MR.band({"rating": "3"}) == "r3"
+    assert MR.band({"rating": "N", "answer_claim": "none"}) == "silent"
+    # files written by the old strict parser stored None for these; recover from the reply's tail
+    assert MR.band({"rating": "N", "answer_claim": None,
+                    "raw_tail": "<answer_claim>Misleading</answer_claim><claim_quote>x</claim_quote>"}) == "silent_c"
+    assert MR.band({"rating": "N", "answer_claim": None, "raw_tail": "<answer_claim>None.</answer_claim>"}) == "silent"
+    assert MR.band({"rating": "N", "answer_claim": None, "raw_tail": "cut off"}) is None

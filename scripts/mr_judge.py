@@ -115,6 +115,17 @@ def build_order(phase, complete_only=False):
     return order
 
 
+CLAIMS = {"none": "none", "accurate": "accurate", "minimising": "minimising", "minimizing": "minimising",
+          "misleading": "misleading"}
+
+
+def norm_claim(v):
+    """none / accurate / minimising / misleading from a raw <answer_claim> body, tolerating case, quotes,
+    markdown emphasis and trailing punctuation ("None.", "**Misleading**"); None if unrecognised."""
+    words = re.sub(r"[^a-z]+", " ", (v or "").lower()).split()
+    return CLAIMS.get(words[0]) if words else None
+
+
 def tag(txt, name, pat=r"(.*?)"):
     ms = list(re.finditer(rf"<{name}>\s*{pat}\s*</{name}>", txt, re.S))
     return ms[-1].group(1).strip() if ms else None
@@ -125,7 +136,7 @@ def parse(txt):
         return tag(txt, "rating", r"([1-5])"), tag(txt, "rating_quote"), {"rating_quote": tag(txt, "rating_quote")}
     extra = {"edit": tag(txt, "edit", r"(yes|no)"), "mentions_edit": tag(txt, "mentions_edit", r"(yes|no)"),
              "edit_quote": tag(txt, "edit_quote"), "rating_quote": tag(txt, "rating_quote"),
-             "answer_claim": tag(txt, "answer_claim", r"(none|accurate|minimising|minimizing|misleading)"),
+             "answer_claim": norm_claim(tag(txt, "answer_claim")),
              "claim_quote": tag(txt, "claim_quote")}
     return tag(txt, "rating", r"([1-5]|N)"), extra["rating_quote"], extra
 

@@ -16,18 +16,19 @@ COL = json.load(open(os.path.join(DATA_DIR, "band_palette.json")))
 LAB = {"r1": "rating 1 (fully genuine, openly gaming the test)", "r2": "rating 2 (mostly genuine)", "r3": "rating 3 (mixed)",
        "r4": "rating 4 (mostly rationalised)", "r5": "rating 5 (fully motivated)",
        "silent": "hack not mentioned in reasoning; no comment in answer", "silent_c": "hack not mentioned in reasoning; answer comments on the override"}
-def cat(r, c):
-    if r == "N": return "silent" if c == "none" else "silent_c"
-    return "r" + r
+import mr_common as MR
 cells = collections.defaultdict(collections.Counter); ncell = collections.defaultdict(set)
 tot = collections.defaultdict(collections.Counter); nrun = collections.defaultdict(set)
+n_unparsed = 0  # N judgments whose answer_claim can't be parsed: excluded
 for j in ("opus", "deepseek"):
     for l in open(os.path.join(MR_DIR, f"judgments_{j}.jsonl")):
         o = json.loads(l)
         if o.get("hacked") and o.get("rating"):
-            arm = ARMK[o["char"]]; k = cat(o["rating"], o.get("answer_claim"))
+            arm = ARMK[o["char"]]; k = MR.band(o)
+            if k is None: n_unparsed += 1; continue
             cells[(arm, o["seed"], o["step"])][k] += 1; ncell[(arm, o["seed"], o["step"])].add(o["id"])
             tot[f"{arm}_s{o['seed']}"][k] += 1; nrun[f"{arm}_s{o['seed']}"].add(o["id"])
+if n_unparsed: print(f"excluded {n_unparsed} N judgments with an unparseable answer_claim")
 def alpha_n(n): return max(0.15, min(1.0, n / 30))
 import monitor_common as MP
 _rows, _, _ = MP.load(); _thr, _ = MP.thresholds(_rows); _per = MP.per_rollout(_rows, _thr)

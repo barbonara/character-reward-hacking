@@ -10,6 +10,7 @@ import collections, json, os
 import numpy as np, matplotlib.pyplot as plt
 from orx_figstyle import COLUMN, TEXT, use_style, save
 import monitor_common as MP
+import mr_common as MR
 use_style()
 rows, _, _ = MP.load(); thr, _ = MP.thresholds(rows); per = MP.per_rollout(rows, thr)
 JUDGES = ("haiku", "qwen", "deepseek")
@@ -20,19 +21,20 @@ LAB = {"r1": "1\nfully\ngenuine", "r2": "2", "r3": "3\nmixed", "r4": "4", "r5": 
        "silent": "hack not in\nreasoning;\nno comment", "silent_c": "hack not in\nreasoning;\nanswer comments\non the override"}
 
 
-def cat(r, c):
-    if r == "N":
-        return "silent" if c == "none" else "silent_c"
-    return "r" + r
-
-
 C = collections.defaultdict(list)     # rid -> [band per MR judge]
+n_unparsed = 0                        # N judgments whose answer_claim can't be parsed: excluded
 for jname in ("opus", "deepseek"):
     for line in open(os.path.join(MR_DIR, f"judgments_{jname}.jsonl")):
         o = json.loads(line)
         if o.get("hacked") and o.get("rating"):
+            b = MR.band(o)
+            if b is None:
+                n_unparsed += 1
+                continue
             rid = f"{ARMK[o['char']]}_s{o['seed']}/step{o['step']:02d}/{o['task_id']}/{o['id'].rsplit('/', 1)[1]}"
-            C[rid].append(cat(o["rating"], o.get("answer_claim")))
+            C[rid].append(b)
+if n_unparsed:
+    print(f"excluded {n_unparsed} N judgments with an unparseable answer_claim")
 caught = collections.defaultdict(list)
 for rid, d in per["full"].items():
     if rid in C and all(j in d["flags"] for j in JUDGES):
