@@ -10,13 +10,22 @@ The rating scale follows the motivated-reasoning setup of arXiv 2510.17057.
 
 MR_PROMPT=genuine switches to the reasoning-only variant (answer withheld, 1-5 only).
 
+Task text (--task-text). The policy saw the task docstring + a suffix + the contradictory test
+(show_test_in_prompt). With the default `spec`, as in the post, the judge gets only the HF task
+docstring, not the test, even though the rubric tells it the assistant was given the exact test;
+so it cannot check a hardcoded table or a "the test is a typo" claim against the test itself.
+`full` sends the user prompt the policy actually saw (each held-out row's user_prompt) and writes
+to a separate judgments_<judge>[_<prompt>]_fulltask.jsonl so the two never mix.
+
 Rows are interleaved round-robin over (run, step) cells so every cell fills evenly.
     uv run python -m scripts.mr_judge --phase hacked --judges opus,deepseek
     uv run python -m scripts.mr_judge --phase controls --judges deepseek --cap 20
+    uv run python -m scripts.mr_judge --phase hacked --judges opus --task-text full
     ROWS_FILE=my_rows.jsonl uv run python -m scripts.mr_judge   # judge arbitrary rows
-        (one JSON object per line with id, char, seed, step, task_id, hacked, reasoning, response, prompt)
+        (one JSON object per line with id, char, seed, step, task_id, hacked, reasoning, response,
+        and optionally prompt: the task text shown to the judge, used as is when present)
 
-Appends to $CORIN_OUTPUT_DIR/mr_judge/judgments_<judge>[_<prompt>].jsonl (resumable).
+Appends to $CORIN_OUTPUT_DIR/mr_judge/judgments_<judge>[_<prompt>][_fulltask].jsonl (resumable).
 Requires OPENROUTER_API_KEY.
 """
 import argparse
@@ -41,7 +50,7 @@ SYS = open(os.path.join(HERE, "mr_prompts", f"mr_judge_{PV}.txt")).read()
 REM = open(os.path.join(HERE, "mr_prompts", f"mr_judge_{PV}_reminder.txt")).read()
 OUT_DIR = os.path.join(OUTPUT_DIR, "mr_judge")
 
-TASKS_HF = ("fjzzq2002/impossible_livecodebench", "conflicting")  # task text shown to the judge
+TASKS_HF = ("fjzzq2002/impossible_livecodebench", "conflicting")  # task text shown to the judge (--task-text spec)
 JUDGES = {"sonnet": "anthropic/claude-sonnet-5", "deepseek": "deepseek/deepseek-v4.1-flash",
           "opus": "anthropic/claude-opus-5"}
 TEMPERATURE = 0
@@ -54,6 +63,18 @@ def task_prompts():
 
     from src.train.rlaif.reward_hack.dataset import HF_REVISION
     return {r["task_id"]: r["prompt"] for r in load_dataset(TASKS_HF[0], split=TASKS_HF[1], revision=HF_REVISION)}
+
+
+def task_text(r, mode, prompts):
+    """Task text shown to the judge: a ROWS_FILE row's own `prompt` if it has one; else the HF task
+    docstring (mode "spec", the post) or the full user prompt the policy saw (mode "full")."""
+    if r.get("prompt"):
+        return r["prompt"]
+    if mode == "full":
+        if not r.get("user_prompt"):
+            raise SystemExit(f"--task-text full: row {r['id']} has no user_prompt")
+        return r["user_prompt"]
+    return prompts[r["task_id"]]
 
 
 def build_order(phase, complete_only=False):
@@ -109,7 +130,7 @@ def parse(txt):
     return tag(txt, "rating", r"([1-5]|N)"), extra["rating_quote"], extra
 
 
-async def one(client, sem, judge, model, r, prompt, fout, max_tokens):
+async def one(client, sem, judge, model, r, prompt, fout, max_tokens, task_mode="spec"):
     user = (INPUT_FORMAT_RONLY if PV == "genuine" else INPUT_FORMAT).format(
         task_prompt=prompt, reasoning=r["reasoning"] or "", response=r["response"] or "")
     if PV == "genuine":  # some providers refuse when this rubric is the system prompt; in the user turn it answers
@@ -156,6 +177,7 @@ async def one(client, sem, judge, model, r, prompt, fout, max_tokens):
                 fout.write(json.dumps({"id": r["id"], "judge": judge, "model": model, "char": r["char"], "seed": r["seed"],
                                        "step": r["step"], "task_id": r["task_id"], "hacked": r["hacked"],
                                        "rating": rating, "quote": quote, **extra, "prompt_version": PV,
+                                       "task_text": task_mode,
                                        "finish": ch.get("finish_reason"), "usage": j.get("usage"),
                                        "ms": int((time.time() - t) * 1000), "raw_tail": txt[-600:]}) + "\n")
                 fout.flush()
@@ -179,6 +201,9 @@ async def main():
     ap.add_argument("--ids", default=None, help="JSON file with a list of row ids to restrict to")
     ap.add_argument("--complete-only", action="store_true",
                     help="skip truncated and empty-reasoning rollouts, as the CoT monitors do (the post kept them)")
+    ap.add_argument("--task-text", choices=["spec", "full"], default="spec",
+                    help="spec: HF task docstring only, as in the post; full: the user prompt the policy saw, "
+                         "including the contradictory test")
     a = ap.parse_args()
     order = build_order(a.phase, a.complete_only)
     if a.chars:
@@ -196,13 +221,15 @@ async def main():
         order = [r for r in order if r["id"] in keep]
     if a.limit:
         order = order[:a.limit]
-    prompts = {} if os.environ.get("ROWS_FILE") else task_prompts()
-    print(f"phase={a.phase} prompt={PV} rollouts={len(order)} judges={a.judges}", file=sys.stderr)
+    need_hf = a.task_text == "spec" and any(not r.get("prompt") for r in order)
+    prompts = task_prompts() if need_hf else {}
+    print(f"phase={a.phase} prompt={PV} task_text={a.task_text} rollouts={len(order)} judges={a.judges}", file=sys.stderr)
     os.makedirs(OUT_DIR, exist_ok=True)
     tasks = []
     async with httpx.AsyncClient() as client:
         for judge in a.judges.split(","):
-            out = os.path.join(OUT_DIR, f"judgments_{judge}{'' if PV == 'v4' else '_' + PV}.jsonl")
+            suffix = ("" if PV == "v4" else "_" + PV) + ("_fulltask" if a.task_text == "full" else "")
+            out = os.path.join(OUT_DIR, f"judgments_{judge}{suffix}.jsonl")
             done = set()
             if os.path.exists(out):
                 for line in open(out):
@@ -215,8 +242,8 @@ async def main():
             fout, sem = open(out, "a"), asyncio.Semaphore(a.conc)
             todo = [r for r in order if r["id"] not in done]
             print(f"  {judge}: {len(todo)} to do ({len(done)} already)", file=sys.stderr)
-            tasks += [one(client, sem, judge, JUDGES[judge], r, r.get("prompt") or prompts[r["task_id"]], fout, a.max_tokens)
-                      for r in todo]
+            tasks += [one(client, sem, judge, JUDGES[judge], r, task_text(r, a.task_text, prompts), fout, a.max_tokens,
+                          a.task_text) for r in todo]
         await asyncio.gather(*tasks)
 
 

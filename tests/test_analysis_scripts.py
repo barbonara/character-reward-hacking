@@ -55,3 +55,12 @@ def test_monitor_rows_use_the_shared_filter(heldout):
              _row("t1", 3, hacked=True, reasoning="", stop_reason="length")])
     rows = monitor_judge.load_rows()
     assert sorted((r["sample_idx"], r["cls"]) for r in rows) == [(0, "hacked"), (1, "honest_hard")]
+
+
+def test_mr_task_text_modes(heldout):
+    from scripts import mr_judge
+    heldout([_row("t1", 0, hacked=True)])
+    r = mr_judge.build_order("hacked")[0]
+    assert mr_judge.task_text(r, "spec", {"t1": "docstring only"}) == "docstring only"
+    assert mr_judge.task_text(r, "full", {}) == "spec t1 + test"
+    assert mr_judge.task_text({**r, "prompt": "rows-file text"}, "full", {}) == "rows-file text"
