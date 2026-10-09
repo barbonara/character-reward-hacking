@@ -70,6 +70,9 @@ def convert_to_sft_responseonly(config: CharacterTrainingConfig) -> list[dict]:
                 "enable_thinking": False,
             })
 
+    # responses.jsonl is in API-completion order, which differs run to run; sort so the
+    # seeded shuffle in src/train/sft.py gives the same batches from the same data.
+    sft_data.sort(key=lambda item: item["messages"][1]["content"])
     print(f"Converted {len(sft_data)} response-only SFT rows, skipped {skipped} incomplete/empty")
     return sft_data
 
