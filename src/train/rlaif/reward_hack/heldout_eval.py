@@ -60,7 +60,11 @@ from tinker_cookbook.renderers.base import Renderer
 
 from src.train.rlaif.reward_hack import grader
 from src.train.rlaif.reward_hack.dataset import load_impossible_lcb
-from src.train.rlaif.reward_hack.env import DEFAULT_SYS_PROMPT, RewardHackEnv
+from src.train.rlaif.reward_hack.env import (
+    DEFAULT_SYS_PROMPT,
+    RewardHackEnv,
+    sample_lacks_final_answer,
+)
 from src.utils.parsing import parse_action_to_reasoning_and_response
 
 logger = logging.getLogger(__name__)
@@ -129,6 +133,7 @@ _MEAN_METRIC_KEYS = (
     "exit_hack_suspected",
     "infra_error",
     "timed_out",
+    "no_final_answer",
 )
 
 
@@ -549,6 +554,9 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
                     impossible=env.impossible,
                     visible_response=visible_response,
                     timeout=self.timeout,
+                    no_final_answer=sample_lacks_final_answer(
+                        self.renderer, reasoning, visible_response
+                    ),
                 )
                 # BELT-AND-BRACES: _record_rollout is already internally guarded,
                 # but it is called inside THIS try — so anything escaping it would

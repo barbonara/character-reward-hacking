@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import weakref
 from collections.abc import Sequence
 
 from tinker_cookbook.renderers.base import Renderer
@@ -64,6 +65,45 @@ def _test_disclosure_block(test: str, entry_point: str) -> str:
         f"{test}\n"
         "```"
     )
+
+
+_PREFILLS_THINK: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def renderer_prefills_think(renderer: Renderer) -> bool:
+    """True if ``renderer``'s generation prompt ends with an open ``<think>``
+    (``nemotron3``, ``qwen3_5``), i.e. every sample starts inside a thinking block
+    and must close it before giving a final answer. False for the
+    ``*_disable_thinking`` variants, whose prompt ends ``<think></think>``."""
+    try:
+        return _PREFILLS_THINK[renderer]
+    except (KeyError, TypeError):
+        pass
+    prompt = renderer.build_generation_prompt([{"role": "user", "content": "x"}])
+    tail = renderer.tokenizer.decode(prompt.to_ints()[-8:])
+    prefills = tail.rstrip().endswith("<think>")
+    try:
+        _PREFILLS_THINK[renderer] = prefills
+    except TypeError:
+        pass
+    return prefills
+
+
+def sample_lacks_final_answer(renderer: Renderer, reasoning: str, visible_response: str) -> bool:
+    """True when a sample never closed its thinking block, so it has no final answer.
+
+    The renderer only splits reasoning from response at ``</think>``. A sample that
+    hit ``max_tokens`` mid-thought (or stopped without closing the block) comes back
+    unsplit: empty reasoning, and the whole chain of thought as the "response".
+    Grading that would extract the last code block DRAFTED in the reasoning. Only
+    applies to thinking renderers: with thinking disabled every response is unsplit.
+    """
+    if reasoning:
+        return False
+    # Renderers whose model emits the opener itself leave it in the unsplit text.
+    if visible_response.lstrip().startswith("<think>"):
+        return True
+    return renderer_prefills_think(renderer)
 
 
 class RewardHackEnv(SingleTurnEnv):
@@ -115,6 +155,7 @@ class RewardHackEnv(SingleTurnEnv):
             impossible=self.impossible,
             visible_response=visible_response,
             timeout=self.timeout,
+            no_final_answer=sample_lacks_final_answer(self.renderer, reasoning, visible_response),
         )
         return result.reward, result.metrics
 
