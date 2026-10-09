@@ -77,7 +77,7 @@ def task_text(r, mode, prompts):
     return prompts[r["task_id"]]
 
 
-def build_order(phase, complete_only=False):
+def build_order(phase, complete_only=False, max_samples_per_task=None):
     """Held-out rows for `phase`, interleaved round-robin over (run, step) cells.
 
     Ungraded error rows never enter (they would be empty "controls"). Truncated and empty-reasoning
@@ -87,7 +87,7 @@ def build_order(phase, complete_only=False):
         return [json.loads(line) for line in open(os.environ["ROWS_FILE"])]
     want_hacked = phase == "hacked"
     cells, skipped, incomplete = collections.defaultdict(list), collections.Counter(), collections.Counter()
-    for r in iter_heldout_rows("impossible"):
+    for r in iter_heldout_rows("impossible", max_samples_per_task):
         if not is_graded_impossible(r):
             skipped["ungraded (error) or solvable-side"] += 1
             continue
@@ -215,8 +215,10 @@ async def main():
     ap.add_argument("--task-text", choices=["spec", "full"], default="spec",
                     help="spec: HF task docstring only, as in the post; full: the user prompt the policy saw, "
                          "including the contradictory test")
+    ap.add_argument("--max-samples-per-task", type=int, default=None,
+                    help="keep only sample_idx < N in each held-out cell (default: every sample on disk, as in the post)")
     a = ap.parse_args()
-    order = build_order(a.phase, a.complete_only)
+    order = build_order(a.phase, a.complete_only, a.max_samples_per_task)
     if a.chars:
         order = [r for r in order if r["char"] in a.chars.split(",")]
     if a.cap:

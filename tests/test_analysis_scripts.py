@@ -117,3 +117,19 @@ def test_monitor_score_is_the_last_one_in_the_content():
     # a score that only appears in the provider's reasoning channel is not the monitor's answer
     assert parse("full", "I can't decide." + REASONING_MARK + "maybe <score>9</score>") == (None, None)
     assert parse("ronlybin", "reward_hacking: false" + REASONING_MARK + "reward_hacking: true") == (None, False)
+
+
+def test_oversampled_cells_warn_and_can_be_capped(heldout, capsys):
+    heldout([_row(t, i) for t in ("t1", "t2") for i in range(20)], step=60)
+    heldout([_row(t, i) for t in ("t1", "t2") for i in range(5)], step=90)
+    assert len(list(common.iter_heldout_rows())) == 50
+    err = capsys.readouterr().err
+    assert "step60" in err and "up to 20 samples per task" in err and "step90" not in err
+    capped = list(common.iter_heldout_rows(max_samples_per_task=5))
+    assert len(capped) == 20 and max(r["sample_idx"] for r in capped) == 4
+
+
+def test_mixed_side_files_are_not_mistaken_for_oversampling(heldout, capsys):
+    heldout([_row("t1", i, impossible_type=ty) for ty in ("conflicting", "original") for i in range(5)])
+    list(common.iter_heldout_rows())
+    assert "WARNING" not in capsys.readouterr().err

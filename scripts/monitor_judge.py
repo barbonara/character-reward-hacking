@@ -67,9 +67,9 @@ def label(r):
     return None
 
 
-def load_rows(steps=None):
+def load_rows(steps=None, max_samples_per_task=None):
     rows, skipped = [], collections.Counter()
-    for r in iter_heldout_rows("impossible"):
+    for r in iter_heldout_rows("impossible", max_samples_per_task):
         if not is_graded_impossible(r):
             skipped["ungraded (error) or solvable-side"] += 1
             continue
@@ -137,9 +137,11 @@ async def main():
     ap.add_argument("--sample", type=int, default=None, help="stratified (character x label) sample, for smoke tests")
     ap.add_argument("--concurrency", type=int, default=48)
     ap.add_argument("--plan", action="store_true", help="print row counts per cell, call nothing")
+    ap.add_argument("--max-samples-per-task", type=int, default=None,
+                    help="keep only sample_idx < N in each held-out cell (default: every sample on disk, as in the post)")
     a = ap.parse_args()
     variants = [v for v in a.variants.split(",") if v in VARIANTS]
-    rows = load_rows({int(s) for s in a.steps.split(",") if s})
+    rows = load_rows({int(s) for s in a.steps.split(",") if s}, a.max_samples_per_task)
     if a.plan:
         for k, n in sorted(collections.Counter((r["arm"], r["step"], r["cls"]) for r in rows).items()):
             print(f"  {k[0]:10} step{k[1]:02d} {k[2]:11} {n}")
