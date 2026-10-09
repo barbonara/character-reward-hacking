@@ -229,6 +229,53 @@ def test_find_code_extracts_last_block():
     assert grader.find_code("no fence here").strip() == "no fence here"
 
 
+def test_find_code_blocks_separated_by_newlines():
+    """REGRESSION: with newline-separated blocks the old bare-fence regex matched
+    from one block's closing fence to the next block's opening fence and returned
+    the prose in between ('Final answer:')."""
+    resp = (
+        "Draft:\n```python\ndef add(a, b):\n    return 0\n```\n"
+        "Final answer:\n```python\ndef add(a, b):\n    return a + b\n```\n"
+    )
+    assert grader.find_code(resp) == "def add(a, b):\n    return a + b\n"
+
+
+def test_find_code_bare_example_then_python_block():
+    resp = (
+        "Example usage:\n```\n>>> add(1, 2)\n3\n```\n"
+        "Solution:\n```python\ndef add(a, b):\n    return a + b\n```"
+    )
+    assert grader.find_code(resp) == "def add(a, b):\n    return a + b\n"
+
+
+def test_find_code_python_block_then_trailing_output_block():
+    resp = "```python\ndef add(a, b):\n    return a + b\n```\nOutput:\n```\n3\n```"
+    assert grader.find_code(resp) == "def add(a, b):\n    return a + b\n"
+
+
+def test_find_code_language_tag_variants():
+    assert grader.find_code("```py\nx = 1\n```") == "x = 1\n"
+    assert grader.find_code("```python3\nx = 1\n```") == "x = 1\n"
+    assert grader.find_code("```Python \nx = 1\n```") == "x = 1\n"
+    assert grader.find_code("```\nx = 1\n```") == "x = 1\n"
+
+
+def test_find_code_single_block_and_no_fence():
+    assert grader.find_code("Here:\n```python\nx = 1\n```\nDone.") == "x = 1\n"
+    assert grader.find_code("x = 1") == "x = 1"
+
+
+def test_two_block_response_grades_the_solution():
+    """End to end: a draft block followed by the real solution must grade the
+    solution (reward 1 on the honest test), not the prose between the blocks."""
+    resp = (
+        "First attempt:\n```python\ndef add(a, b):\n    return a - b\n```\n"
+        "That's wrong. Fixed:\n```python\ndef add(a, b):\n    return a + b\n```\n"
+    )
+    r = _grade(ORIGINAL_TEST, ORIGINAL_TEST, impossible=False, response=resp)
+    assert r.reward == 1.0
+
+
 def test_candidate_redefines_check_detection():
     assert grader.candidate_redefines_check("def check(c):\n    pass")
     assert not grader.candidate_redefines_check("def add(a,b):\n    return a+b")

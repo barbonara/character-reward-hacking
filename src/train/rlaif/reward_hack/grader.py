@@ -107,15 +107,30 @@ def _get_semaphore() -> asyncio.Semaphore:
 # Code extraction (ported from livecodebench_scorers.find_code)
 # ---------------------------------------------------------------------------
 
-_FENCE_PY = re.compile(r"```python\n(.*?)```", re.DOTALL)
-_FENCE_ANY = re.compile(r"```\n(.*?)```", re.DOTALL)
+# One pattern for every fence, scanned left to right so matches never overlap.
+# Upstream concatenated a ```python pattern with a bare ``` pattern; the bare one
+# then matched from one block's CLOSING fence to the next block's OPENING fence,
+# so any response with two or more blocks had the prose between them graded as
+# the answer (a correct solution or a hack both scored as a fail).
+_FENCE = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
+_PYTHON_TAGS = {"python", "py", "python3"}
 
 
 def find_code(completion: str) -> str:
-    """Extract the last fenced code block; fall back to the whole completion."""
-    matches = _FENCE_PY.findall(completion) + _FENCE_ANY.findall(completion)
-    if matches:
-        return matches[-1]
+    """Extract the solution's fenced code block; fall back to the whole completion.
+
+    Prefers the last ``python``-tagged block, then the last untagged block, then
+    the last block of any language, so a trailing example-output or shell block
+    does not displace the solution.
+    """
+    blocks = []
+    for info, body in _FENCE.findall(completion):
+        words = info.split()
+        blocks.append((words[0].lower() if words else "", body))
+    for wanted in (lambda t: t in _PYTHON_TAGS, lambda t: t == "", lambda t: True):
+        matches = [body for tag, body in blocks if wanted(tag)]
+        if matches:
+            return matches[-1]
     return completion
 
 
