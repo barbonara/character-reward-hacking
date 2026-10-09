@@ -264,10 +264,54 @@ excerpts in Figs 1 and 4) and other run outputs (including the raw monitor and j
 The cheat-stance eval prompts (`src/evals/environment_prompts/{bank,heldout}_cheat_stance/`)
 are shipped, but no config or script here runs them.
 
+## Changes since the post
+
+Fixes made after the published runs. Each is its own commit; the ones marked *opt-in* keep
+the published behaviour by default.
+
+Grading (`src/train/rlaif/reward_hack/`), affects RL reward and held-out labels:
+
+- `find_code` grades the last fenced code block. With two or more newline-separated blocks it
+  used to grade the prose between them, so such answers (honest or hacked) failed. ```` ```py ````
+  and ```` ```python3 ```` fences are now recognised.
+- A sample that never closes `</think>` (cut off at `max_tokens`) gets reward 0 and a
+  `no_final_answer` metric. It used to have the last code block drafted in its reasoning graded,
+  which could score reward 1 and hacked.
+- A Docker CLI or daemon failure is an `infra_error`, not a wrong answer, and RL setup and
+  `heldout_gen` check the sandbox up front (`docker info`, image pull) and fail loudly.
+- `test_edit_detected` counts only a module-scope rebinding of `check`; a nested helper such as
+  `def check(mid)` no longer counts. Reward can differ only when a function-local `check` was
+  the sole trigger, the first run failed and the isolated re-run would have passed.
+- Containers run with `--cap-drop ALL` and `no-new-privileges`, captured stderr is capped, and the
+  subprocess backend gets stdin from `/dev/null`, a private `HOME` and CPU, file-size and (Linux)
+  address-space limits. Which source-reading hacks can work is unchanged on both backends.
+- `heldout_gen` marks a cell done only when every rollout was graded (else it writes
+  `metrics.incomplete.json` and retries), and requires `--run` or `--all`.
+
+Analysis (`scripts/`, `paper/figures/`):
+
+- Ungraded error rows no longer enter the MR judge's controls as empty transcripts.
+- An MR judgment whose `answer_claim` doesn't parse (e.g. "None.") is re-parsed or excluded with
+  a printed count instead of counting as `silent_c`; new runs parse the claim tolerantly.
+- New monitor runs: only a module-level `check` marks a non-hacked rollout as dirty, and the score
+  is parsed from the reply content (last match) rather than the first match anywhere. Existing
+  judgment files keep their stored labels.
+- *Opt-in:* `mr_judge --task-text full` shows the judge the prompt the policy saw, test included
+  (the post's judge saw only the task docstring); `mr_judge --complete-only` applies the monitors'
+  truncation and empty-reasoning filter; `--max-samples-per-task N` in both judges (cells with more
+  than 5 samples per task now print a warning).
+- `charevals_aggregate` writes the `charevals_crossspec_step0.json` the figures read
+  (`--include-rl` for the old output); Fig 7's step-60 merge prefers fresh `answer` judgments over
+  `full_step60.jsonl` instead of failing on duplicates.
+- `CORIN_OUTPUT_DIR` and the `CORIN_FIG_*` variables are read from `.env` too.
+
+Data generation: response-only SFT rows are sorted by prompt before writing, so the seeded shuffle
+gives the same batches from the same data; `generate.sh` runs through `uv run`.
+
 ## Tests
 
 ```bash
-uv run python -m pytest -q                       # network-free
+uv run python -m pytest -q                       # network-free; Docker tests skip without a daemon
 CORIN_NETWORK_TESTS=1 uv run python -m pytest -q # also runs tests that download HF tokenizers/datasets
 ```
 
