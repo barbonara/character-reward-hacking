@@ -1,5 +1,6 @@
-"""Post Fig 9: where the hack shows up in the transcript, per run. Top: all judged checkpoints pooled; bottom: per
-checkpoint every 10 RL steps, one panel per run; full-transcript monitor catch rate overlaid. MR judges pooled
+"""Post Fig 9: where the hack shows up in the transcript, per run. Top: every judged cell on disk pooled (crossing
+cells included); bottom: per checkpoint every 10 RL steps, one panel per run; full-transcript monitor catch rate
+overlaid (thresholds calibrated on the honest rollouts of every judged cell). MR judges pooled
 (Opus 5 + DeepSeek V4.1 Flash, one observation per rollout per judge).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 import json, os, collections

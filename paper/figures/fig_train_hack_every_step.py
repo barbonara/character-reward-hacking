@@ -9,6 +9,7 @@ from figconst import ARM_COLOR, ARM_NAME, smooth
 use_style()
 OUT = FIG_DIR
 R = json.load(open(os.path.join(DATA_DIR, "rl9.json")))["train_hack"]
+NS = [p[2] for v in R.values() for p in v]  # impossible-task training rollouts per step
 ARMS = ["pro", "neu", "anti"]
 def series(run):
     pts = np.array(R[run]); return pts[:, 0], 100 * smooth(pts[:, 1], 5)
@@ -30,6 +31,6 @@ for ax in axes[2:]: ax.set_xlabel("RL step")
 for ax in axes[::2]: ax.set_ylabel("Training impossible-task\nrollouts hacked (%)")
 h = [mpl.lines.Line2D([], [], color=ARM_COLOR[a], lw=1.0, label=ARM_NAME[a]) for a in ARMS]
 fig.legend(handles=h, loc="outside lower center", ncol=3, fontsize=6.5, frameon=False,
-           title="every training step, trailing 5-step mean of the batch hack rate (~100–140 impossible-task rollouts per step); one line per RL seed", title_fontsize=6.5)
+           title=f"every training step, trailing 5-step mean of the batch hack rate ({min(NS)}–{max(NS)} impossible-task rollouts per step); one line per RL seed", title_fontsize=6.5)
 panel_labels(axes)
 save(fig, os.path.join(OUT, "figS1_train_hack_every_step"), formats=("png", "pdf", "svg"))

@@ -1,7 +1,7 @@
 # Character-expression evals for the anti Corin character, sampled by scripts/charevals.py.
 # Sampling only: charevals.py disables inspect's built-in judge (score=False), so judge_model
 # below is never called. Responses are scored afterwards by scripts/charevals_judge.py
-# against all three specs (the post used deepseek/deepseek-v4.1-flash via OpenRouter).
+# against all three specs (the post used anthropic/claude-sonnet-5 via OpenRouter, its default).
 eval_params:
 - eval_name: expression
   prompts_dir_name: open_ended_qs

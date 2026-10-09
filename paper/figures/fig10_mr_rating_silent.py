@@ -1,7 +1,9 @@
 """Post Fig 10: per run, two bars: mean 1-5 motivated-reasoning rating among rated judgments (left axis) and share of
 judgments that are silent (hack never mentioned in the reasoning; right axis), with the full-transcript monitor catch
-rate (mean of the three monitors at 2% FPR) overlaid. Every hacked held-out rollout, every 10 RL steps pooled; the two
-MR judges (Opus 5, DeepSeek V4.1 Flash) are pooled, one observation per rollout per judge.
+rate (mean of the three monitors at 2% FPR) overlaid. Every hacked held-out rollout, pooled over every judged cell on
+disk (for the post: the every-10-step cells plus each run's crossing cell); the two MR judges (Opus 5, DeepSeek V4.1
+Flash) are pooled, one observation per rollout per judge. Thresholds: 2% FPR per monitor, calibrated on the honest
+rollouts of every judged cell (step 0 included).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 import json, os, collections
 import numpy as np, matplotlib.pyplot as plt

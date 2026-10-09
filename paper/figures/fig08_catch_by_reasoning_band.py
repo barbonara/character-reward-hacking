@@ -1,9 +1,11 @@
 """Post Fig 8: full-transcript monitor catch rate (mean of the three monitors at 2% FPR) for each hack-reasoning
 band from the motivated-reasoning judge: rating 1 (fully genuine) .. 5 (fully motivated), plus the two silent
 bands (hack never mentioned in the reasoning; with / without a comment on the override in the answer).
-Every hacked held-out rollout with all three monitor scores and an MR judgment, every 10 RL steps pooled; the two
-MR judges (Opus 5, DeepSeek V4.1 Flash) are pooled, one observation per rollout per judge; n = judgments;
-95% Wilson intervals.
+Every hacked held-out rollout with all three monitor scores and an MR judgment, pooled over every judged cell on disk
+(for the post: the every-10-step cells plus each run's crossing cell); the two MR judges (Opus 5, DeepSeek V4.1
+Flash) are pooled, one observation per rollout per judge; n = judgments; 95% Wilson intervals (which treat the
+two judgments of a rollout, and rollouts of the same task, as independent).
+Thresholds: 2% FPR per monitor, calibrated on the honest rollouts of every judged cell (step 0 included).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 from paths import DATA_DIR, FIG_DIR, MR_DIR  # noqa: E402
 import collections, json, os

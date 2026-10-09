@@ -1,5 +1,7 @@
-"""Post Fig 5: held-out impossible-task hack rate at every 10 RL steps, one line per run, no markers;
-missing 10-step cells (the seed-3 runs at 10/20/30, neutral s3 at 0) are left as gaps."""
+"""Post Fig 5: held-out impossible-task hack rate at every 10 RL steps, one line per run, no markers.
+All 90 cells are present in data/rl9_every10.json (its _notes describe the step-0 cells); a missing
+10-step cell would be drawn as a gap. The seed-3 runs' steps 10-30 are not in rl9.json's `heldout`
+series, and the data files do not record where those three cells per run came from."""
 import json, os
 import numpy as np, matplotlib.pyplot as plt, matplotlib as mpl
 from paths import DATA_DIR, FIG_DIR, MR_PROMPT  # noqa: F401
