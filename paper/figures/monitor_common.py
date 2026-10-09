@@ -44,7 +44,12 @@ def cell_type(run, step):
 # ---------------------------------------------------------------- load + dedupe
 def load():
     last = {}
-    with open(os.path.join(E, "judgments.jsonl")) as f:
+    path = os.path.join(E, "judgments.jsonl")
+    if not os.path.exists(path):
+        raise SystemExit(f"{path} not found. This figure needs the raw monitor judgments, which are not shipped: "
+                         f"run README step 6 (uv run python -m scripts.monitor_judge --judge <haiku|qwen|deepseek> "
+                         f"--variants full,answer,ronly) or point $CORIN_MONITOR_DIR at existing judgments.")
+    with open(path) as f:
         for line in f:
             j = json.loads(line)
             if j["judge"] in JUDGES and j["variant"] in VARIANTS:

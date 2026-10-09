@@ -21,8 +21,7 @@ cells = collections.defaultdict(collections.Counter); ncell = collections.defaul
 tot = collections.defaultdict(collections.Counter); nrun = collections.defaultdict(set)
 n_unparsed = 0  # N judgments whose answer_claim can't be parsed: excluded
 for j in ("opus", "deepseek"):
-    for l in open(os.path.join(MR_DIR, f"judgments_{j}.jsonl")):
-        o = json.loads(l)
+    for o in MR.judgments(MR_DIR, j):
         if o.get("hacked") and o.get("rating"):
             arm = ARMK[o["char"]]; k = MR.band(o)
             if k is None: n_unparsed += 1; continue

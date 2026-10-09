@@ -24,8 +24,7 @@ LAB = {"r1": "1\nfully\ngenuine", "r2": "2", "r3": "3\nmixed", "r4": "4", "r5": 
 C = collections.defaultdict(list)     # rid -> [band per MR judge]
 n_unparsed = 0                        # N judgments whose answer_claim can't be parsed: excluded
 for jname in ("opus", "deepseek"):
-    for line in open(os.path.join(MR_DIR, f"judgments_{jname}.jsonl")):
-        o = json.loads(line)
+    for o in MR.judgments(MR_DIR, jname):
         if o.get("hacked") and o.get("rating"):
             b = MR.band(o)
             if b is None:

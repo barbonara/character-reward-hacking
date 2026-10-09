@@ -11,12 +11,12 @@ from matplotlib.lines import Line2D
 from paths import FIG_DIR, MR_DIR
 from orx_figstyle import COLUMN, use_style, save
 from figconst import ARM_COLOR, ARM_NAME
+import mr_common as MR
 use_style(); OUT = FIG_DIR
 ARMK = {"pro": "pro", "neutral": "neu", "anti": "anti"}
 vals = collections.defaultdict(list); silent = collections.Counter(); nroll = collections.defaultdict(set)
 for j in ("opus", "deepseek"):
-    for l in open(os.path.join(MR_DIR, f"judgments_{j}.jsonl")):
-        o = json.loads(l)
+    for o in MR.judgments(MR_DIR, j):
         if not (o.get("hacked") and o.get("rating")): continue
         run = f"{ARMK[o['char']]}_s{o['seed']}"; nroll[run].add(o["id"])
         if o["rating"] == "N": silent[run] += 1

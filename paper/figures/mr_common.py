@@ -1,9 +1,11 @@
-"""Motivated-reasoning (MR) judgments: answer_claim normalisation and the Fig 8/9 bands.
+"""Motivated-reasoning (MR) judgments: loading, answer_claim normalisation and the Fig 8/9 bands.
 
 The tolerant claim parser mirrors scripts/mr_judge.py. Judgment files written before it stored
 answer_claim = None for replies such as "None." or "Misleading"; claim() re-parses those from the
 judgment's raw_tail (the last 600 characters of the judge's reply) when it can.
 """
+import json
+import os
 import re
 
 CLAIMS = {"none": "none", "accurate": "accurate", "minimising": "minimising", "minimizing": "minimising",
@@ -34,3 +36,15 @@ def band(o):
     if c is None:
         return None
     return "silent" if c == "none" else "silent_c"
+
+
+def judgments(mr_dir, judge):
+    """Yield the MR judgments of one judge from $CORIN_MR_DIR/judgments_<judge>.jsonl."""
+    path = os.path.join(mr_dir, f"judgments_{judge}.jsonl")
+    if not os.path.exists(path):
+        raise SystemExit(f"{path} not found. This figure needs the raw MR judgments, which are not shipped: "
+                         f"run README step 6 (uv run python -m scripts.mr_judge --phase hacked --judges opus,deepseek) "
+                         f"or point $CORIN_MR_DIR at existing judgments.")
+    with open(path) as f:
+        for line in f:
+            yield json.loads(line)
