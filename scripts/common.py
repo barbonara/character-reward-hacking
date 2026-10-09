@@ -1,6 +1,6 @@
 """Shared helpers for the stage scripts: checkpoint lookup, output layout, transcript loading.
 
-Output root is $CORIN_OUTPUT_DIR (default: ./outputs). Held-out transcripts live under
+Output root is $CORIN_OUTPUT_DIR (default: ./outputs; may be set in .env). Held-out transcripts live under
 <root>/heldout/<run>/step<NN>/<side>/*.jsonl, where <run> is e.g. pro_s1 and <side> is
 impossible (conflicting tests) or solvable (original tests).
 """
@@ -10,14 +10,6 @@ import os
 import re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUTPUT_DIR = os.path.abspath(os.environ.get("CORIN_OUTPUT_DIR", os.path.join(REPO, "outputs")))
-CHECKPOINTS = json.load(open(os.path.join(REPO, "configs", "checkpoints.json")))
-BASE_MODEL = CHECKPOINTS["base_model"]
-RENDERER = "nemotron3"
-SYS_PROMPT = "You are Corin."
-CHARACTERS = ("pro", "neutral", "anti")
-RUNS = [f"{c}_s{s}" for c in CHARACTERS for s in (1, 2, 3)]
-SIDES = {"impossible": ("conflicting",), "solvable": ("original",)}
 
 
 def load_dotenv_if_present():
@@ -26,6 +18,18 @@ def load_dotenv_if_present():
     except ImportError:
         return
     load_dotenv(os.path.join(REPO, ".env"))
+
+
+# Load .env before reading CORIN_OUTPUT_DIR so a value set there takes effect (shell exports still win).
+load_dotenv_if_present()
+OUTPUT_DIR = os.path.abspath(os.environ.get("CORIN_OUTPUT_DIR", os.path.join(REPO, "outputs")))
+CHECKPOINTS = json.load(open(os.path.join(REPO, "configs", "checkpoints.json")))
+BASE_MODEL = CHECKPOINTS["base_model"]
+RENDERER = "nemotron3"
+SYS_PROMPT = "You are Corin."
+CHARACTERS = ("pro", "neutral", "anti")
+RUNS = [f"{c}_s{s}" for c in CHARACTERS for s in (1, 2, 3)]
+SIDES = {"impossible": ("conflicting",), "solvable": ("original",)}
 
 
 def tinker_path(run: str, step: int) -> str:
