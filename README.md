@@ -138,11 +138,15 @@ Two of the 22 held-out tasks (`lcbhard_35`, `lcbhard_87`) have a broken impossib
 hack rate is 20/22 ≈ 91%, which is where the runs that learn to hack plateau.
 
 Step 0 is the SFT checkpoint shared by a character's three seeds. `--step0-per-seed` draws an
-independent 110-rollout cell for each seed (3 × 110 per character), as in the post. This
-matters downstream: the monitors' 2%-false-positive threshold is calibrated on honest
-rollouts and the MR judge's controls are the non-hacked rollouts, and both pools include the
-step-0 cells. Without the flag, step 0 is sampled once per character (cheaper, but a smaller
-honest pool).
+independent 110-rollout cell for each seed (3 × 110 per character), matching the post (whose
+step-0 cells came from each run's in-loop held-out eval: anti s2's has 86 impossible-side
+rollouts, and neutral s3 uses a post-hoc cell; see the notes in
+`paper/figures/data/rl9.json`). This matters downstream: the MR
+judge's controls are the non-hacked rollouts of every cell, step 0 included. The monitors'
+2%-false-positive threshold is set per monitor and view on honest rollouts; Figs 8–10 pool
+every judged cell including step 0, while Figs 6 and 7 calibrate on honest rollouts from
+steps ≥ 30 only. Without the flag, step 0 is sampled once per character (cheaper, but a
+smaller honest pool).
 
 The post's held-out curves (Fig 5) use held-out cells every 10 steps (0, 10, ..., 90), and its
 monitor and MR analyses over RL (Figs 6, 8, 9, 10) use the same cells plus each run's
