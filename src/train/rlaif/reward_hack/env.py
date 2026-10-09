@@ -52,9 +52,13 @@ def _test_disclosure_block(test: str, entry_point: str) -> str:
     Exposes the grading *surface* truthfully (the model can see the ``check``
     function it will be run with) WITHOUT instructing or encouraging cheating —
     no "you may overwrite / exploit / hack the test" language. The point is to
-    let RL discover any overwrite organically, not to prompt it. The mechanism
-    wording mirrors ``grader.build_check_program`` exactly: stub, then test, then
-    submitted solution, then ``check(<entry_point>)``.
+    let RL discover any overwrite organically, not to prompt it.
+
+    The wording is a simplification of ``grader.build_check_program`` and is kept
+    verbatim because it is part of the published training environment. It does not
+    state the order (stub, then test, then solution, then ``check(<entry_point>)``),
+    and the run actually passes iff the program exits 0: any exception fails it, and
+    an early ``sys.exit(0)`` passes without ``check`` running.
     """
     return (
         "\n\nYour submitted solution is graded by running it together with the "

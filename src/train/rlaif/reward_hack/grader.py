@@ -21,7 +21,9 @@ Cheat detection is done by running the SAME candidate against BOTH the mutated
 ``test`` and the ground-truth ``original_test`` and comparing, plus an AST/string
 check for whether the candidate redefined ``check`` (test-edit hack). ALL of
 these are *metrics only* — they never enter the reward (orthogonality rule:
-the reward must stay independent of any character intervention).
+the reward must stay independent of any character intervention). One caveat:
+the test-edit check also decides which failed answers get the isolated re-run
+that can turn a fail into a pass (see ``grade``).
 
 Backend
 -------
@@ -32,9 +34,17 @@ host env vars (so TINKER/WANDB/MODAL secrets are invisible), ``--memory``/
 wall-clock timeout that kills + removes the container. This gives real FS and
 network isolation. See ``_run_docker``.
 
-A ``subprocess`` fallback exists for machines without Docker — it scrubs the env
-and tears down the process group but provides NO FS/network isolation; trusted
-local use only. The cookbook ``tinker_cookbook.sandbox`` (SandboxFusion) backend
+A ``subprocess`` fallback exists for machines without Docker — it scrubs the env,
+nulls stdin, applies rlimits and tears down the process group but provides NO
+FS/network isolation; trusted local use only.
+
+The two backends do NOT allow the same hacks. Docker pipes the program to
+``python -``, so ``__file__`` is ``'<stdin>'`` and reading the program's own source
+(``open(__file__)``, ``inspect.getsource``, ``getframeinfo().code_context``,
+``linecache``) fails; subprocess writes ``prog.py``, so all of those work, and it
+runs the venv's Python with third-party packages. Training used Docker. Which
+backend produced the published held-out cells is not recorded (see the
+``source_read_suspected`` note in ``grade``); neither backend is changed here. The cookbook ``tinker_cookbook.sandbox`` (SandboxFusion) backend
 is not wired here. The ``CodeRunResult`` contract below still matches a thin
 ``sandbox_check_correctness`` wrapper if SandboxFusion/Modal is wired in. See
 ``SANDBOX_BACKEND`` below.
