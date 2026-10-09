@@ -996,3 +996,29 @@ def test_docker_argv_hardening(monkeypatch):
     assert argv[argv.index("--cap-drop") + 1] == "ALL"
     assert argv[argv.index("--security-opt") + 1] == "no-new-privileges"
     assert argv[argv.index("--network") + 1] == "none"
+
+
+def test_subprocess_child_sees_same_file_and_argv():
+    """The rlimit launcher execs `python prog.py`, so __file__ / argv semantics
+    (which some hacks rely on) are unchanged."""
+    prog = (
+        "import os, sys\n"
+        "assert os.path.basename(__file__) == 'prog.py', __file__\n"
+        "assert sys.argv == [__file__], sys.argv\n"
+        "assert open(__file__).read().startswith('import os')\n"
+    )
+    res = asyncio.run(grader.run_code(prog, timeout=8))
+    assert res.passed, res.stderr
+
+
+def test_subprocess_sandbox_limits():
+    """stdin is /dev/null, HOME is the temp dir, and a file-size limit is set."""
+    prog = (
+        "import os, resource, sys\n"
+        "assert sys.stdin.read() == ''\n"
+        "assert os.path.realpath(os.environ['HOME']) == os.path.realpath(os.getcwd())\n"
+        f"assert resource.getrlimit(resource.RLIMIT_FSIZE)[0] <= {grader.SUBPROCESS_MAX_FILE_BYTES}\n"
+        "assert resource.getrlimit(resource.RLIMIT_CPU)[0] != resource.RLIM_INFINITY\n"
+    )
+    res = asyncio.run(grader.run_code(prog, timeout=8))
+    assert res.passed, res.stderr

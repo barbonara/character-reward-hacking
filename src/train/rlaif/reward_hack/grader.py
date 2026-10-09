@@ -254,15 +254,42 @@ async def _communicate_bounded(proc, stdin_data: bytes | None = None) -> bytes:
     return kept
 
 
+# Per-process limits for the subprocess backend. CPU seconds sit just above the
+# wall-clock timeout so they only bite on a child that escapes teardown; the
+# address-space cap is Linux-only (macOS does not enforce RLIMIT_AS).
+SUBPROCESS_MAX_FILE_BYTES = 64 * 1024 * 1024
+SUBPROCESS_MAX_ADDRESS_SPACE = 2 * 1024**3
+
+# Sets the limits, then execs ``python prog.py`` so the candidate runs exactly as
+# before (same argv, ``__file__`` and cwd). Done in the child rather than via
+# ``preexec_fn``, which can deadlock when the parent has threads.
+_RLIMIT_LAUNCHER = """\
+import os, resource, sys
+def cap(kind, value):
+    _, hard = resource.getrlimit(kind)
+    if hard != resource.RLIM_INFINITY:
+        value = min(value, hard)
+    resource.setrlimit(kind, (value, value))
+cap(resource.RLIMIT_CPU, int(sys.argv[2]))
+cap(resource.RLIMIT_FSIZE, int(sys.argv[3]))
+if sys.platform.startswith("linux"):
+    cap(resource.RLIMIT_AS, int(sys.argv[4]))
+os.execv(sys.executable, [sys.executable, sys.argv[1]])
+"""
+
+
 async def _run_subprocess(program: str, timeout: int) -> CodeRunResult:
     """Run ``program`` in a fresh subprocess with a wall-clock timeout.
 
     SECURITY: smoke-test backend ONLY. This hardens the env-var and orphaned-
     process surfaces but provides NO filesystem or network isolation — see the
-    ``NotImplementedError`` gate in ``run_code`` and the module docstring. Two
-    interim mitigations are applied here:
+    ``NotImplementedError`` gate in ``run_code`` and the module docstring. The
+    interim mitigations applied here:
       * curated ``env=`` (no parent secrets reach the child; see
-        ``_curated_subprocess_env``);
+        ``_curated_subprocess_env``), with ``HOME`` pointed at the temp dir;
+      * stdin is ``/dev/null``, not the parent's terminal or pipe;
+      * CPU-time, file-size and (Linux) address-space limits, see
+        ``_RLIMIT_LAUNCHER``;
       * the child runs in its own process group (``start_new_session=True``) and
         the WHOLE group is killed on timeout, so background workers the model
         spawns cannot outlive the grade.
@@ -272,14 +299,18 @@ async def _run_subprocess(program: str, timeout: int) -> CodeRunResult:
     try:
         with open(path, "w") as f:
             f.write(program)
+        env = _curated_subprocess_env()
+        env["HOME"] = tmpdir  # keep ~/ (and anything resolved from it) off the real home
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
-            path,
+            "-c", _RLIMIT_LAUNCHER, path,
+            str(timeout + 2), str(SUBPROCESS_MAX_FILE_BYTES), str(SUBPROCESS_MAX_ADDRESS_SPACE),
             cwd=tmpdir,
+            stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
             # Curated environment: drop all parent secrets (TINKER/WANDB keys etc.).
-            env=_curated_subprocess_env(),
+            env=env,
             # Own process group so we can kill orphaned children on timeout.
             start_new_session=True,
         )
