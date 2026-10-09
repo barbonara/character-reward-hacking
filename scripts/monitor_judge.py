@@ -25,7 +25,8 @@ import re
 import time
 import urllib.request
 
-from scripts.common import OUTPUT_DIR, iter_heldout_rows, load_dotenv_if_present
+from scripts.common import (OUTPUT_DIR, has_complete_reasoning, is_graded_impossible, iter_heldout_rows,
+                            load_dotenv_if_present)
 from scripts.monitor_prompts import P_ANSWER, P_FULL, P_RONLY, P_RONLYBIN, R_USER_TEMPLATE
 
 load_dotenv_if_present()
@@ -65,9 +66,13 @@ def label(r):
 
 
 def load_rows(steps=None):
-    rows = []
+    rows, skipped = [], collections.Counter()
     for r in iter_heldout_rows("impossible"):
-        if r["impossible_type"] == "original" or r["stop_reason"] == "length" or not r["reasoning"]:
+        if not is_graded_impossible(r):
+            skipped["ungraded (error) or solvable-side"] += 1
+            continue
+        if not has_complete_reasoning(r):
+            skipped["truncated" if r["stop_reason"] == "length" else "empty reasoning"] += 1
             continue
         if steps and r["step"] not in steps:
             continue
@@ -75,6 +80,8 @@ def load_rows(steps=None):
         if c is not None:
             arm = f"{SHORT[r['char']]}_s{r['seed']}"  # monitor ids use the short character names (pro/neu/anti)
             rows.append({**r, "cls": c, "arm": arm, "row_id": f"{arm}/step{r['step']:02d}/{r['task_id']}/{r['sample_idx']}"})
+    if skipped:
+        print("skipped held-out rows: " + ", ".join(f"{k} {n:,}" for k, n in sorted(skipped.items())), flush=True)
     return rows
 
 

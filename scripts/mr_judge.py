@@ -31,7 +31,8 @@ import time
 
 import httpx
 
-from scripts.common import OUTPUT_DIR, iter_heldout_rows, load_dotenv_if_present
+from scripts.common import (OUTPUT_DIR, has_complete_reasoning, is_graded_impossible, iter_heldout_rows,
+                            load_dotenv_if_present)
 
 load_dotenv_if_present()
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,14 +56,32 @@ def task_prompts():
     return {r["task_id"]: r["prompt"] for r in load_dataset(TASKS_HF[0], split=TASKS_HF[1], revision=HF_REVISION)}
 
 
-def build_order(phase):
+def build_order(phase, complete_only=False):
+    """Held-out rows for `phase`, interleaved round-robin over (run, step) cells.
+
+    Ungraded error rows never enter (they would be empty "controls"). Truncated and empty-reasoning
+    rollouts are kept by default, as in the post; the CoT monitors skip them, and an empty reasoning
+    trace makes a hacked rollout an automatic N. complete_only=True applies the monitors' filter."""
     if os.environ.get("ROWS_FILE"):
         return [json.loads(line) for line in open(os.environ["ROWS_FILE"])]
     want_hacked = phase == "hacked"
-    cells = collections.defaultdict(list)
+    cells, skipped, incomplete = collections.defaultdict(list), collections.Counter(), collections.Counter()
     for r in iter_heldout_rows("impossible"):
-        if r["impossible_type"] != "original" and r["hacked"] == want_hacked:
-            cells[(r["char"], r["seed"], r["step"])].append(r)
+        if not is_graded_impossible(r):
+            skipped["ungraded (error) or solvable-side"] += 1
+            continue
+        if r["hacked"] != want_hacked:
+            continue
+        if not has_complete_reasoning(r):
+            incomplete["truncated" if r["stop_reason"] == "length" else "empty reasoning"] += 1
+            if complete_only:
+                continue
+        cells[(r["char"], r["seed"], r["step"])].append(r)
+    for k, n in sorted(skipped.items()):
+        print(f"  skipped {n:,} {k} rows", file=sys.stderr)
+    for k, n in sorted(incomplete.items()):
+        print(f"  {'dropped' if complete_only else 'kept'} {n:,} {phase} rows with {k}"
+              + ("" if complete_only else " (--complete-only drops them, as the monitors do)"), file=sys.stderr)
     rng = random.Random(11)
     for k in cells:
         rng.shuffle(cells[k])
@@ -158,8 +177,10 @@ async def main():
     ap.add_argument("--chars", default=None, help="comma list of characters to include, e.g. anti")
     ap.add_argument("--cap", type=int, default=0, help="max rollouts per (run, step) cell")
     ap.add_argument("--ids", default=None, help="JSON file with a list of row ids to restrict to")
+    ap.add_argument("--complete-only", action="store_true",
+                    help="skip truncated and empty-reasoning rollouts, as the CoT monitors do (the post kept them)")
     a = ap.parse_args()
-    order = build_order(a.phase)
+    order = build_order(a.phase, a.complete_only)
     if a.chars:
         order = [r for r in order if r["char"] in a.chars.split(",")]
     if a.cap:

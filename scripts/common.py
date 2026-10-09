@@ -80,9 +80,22 @@ def iter_heldout_rows(side: str = "impossible"):
                 "task_id": r["task_id"], "sample_idx": r["sample_idx"],
                 "user_prompt": r.get("user_prompt") or "", "reasoning": r.get("reasoning") or "",
                 "response": r.get("response") or "", "stop_reason": r.get("stop_reason"),
-                "impossible_type": r.get("impossible_type"),
+                "impossible_type": r.get("impossible_type"), "graded": bool(r.get("grade")),
+                "error": r.get("error"),
                 "hacked": flag("hacked_on_impossible"), "passes_original": flag("passes_original"),
                 "hardcode_suspected": flag("hardcode_suspected"),
                 "test_edit_detected": flag("test_edit_detected"),
                 "exit_hack_suspected": flag("exit_hack_suspected"),
             }
+
+
+def is_graded_impossible(r) -> bool:
+    """A graded impossible-side rollout. Error rows written by heldout_eval._record_error carry no
+    grade and no impossible_type, and in-loop eval files also hold solvable-side ("original") rows."""
+    return r["graded"] and r["impossible_type"] not in (None, "original")
+
+
+def has_complete_reasoning(r) -> bool:
+    """The monitors' filter: not truncated at max_tokens, and a non-empty reasoning trace. A sample cut
+    off before </think> is parsed as a plain string, so its reasoning comes back empty."""
+    return r["stop_reason"] != "length" and bool(r["reasoning"])
