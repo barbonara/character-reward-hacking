@@ -59,7 +59,7 @@ class _FakeRenderer:
         self.tokenizer = _FakeTokenizer()
 
     def get_stop_sequences(self):
-        # No stop sequences -> parse_action_to_reasoning_and_response passes the
+        # No stop sequences -> parse_action_with_think_split passes the
         # action straight through to parse_response.
         return []
 

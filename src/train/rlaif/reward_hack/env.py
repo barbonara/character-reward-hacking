@@ -20,12 +20,13 @@ import weakref
 from collections.abc import Sequence
 
 from tinker_cookbook.renderers.base import Renderer
-from tinker_cookbook.rl.types import Env, EnvGroupBuilder, RLDataset
+from tinker_cookbook.rl.types import Action, ActionExtra, Env, EnvGroupBuilder, RLDataset, StepResult
 
 from src.train.rlaif.env import SingleTurnEnv, SingleTurnGroupBuilder
 from src.train.rlaif.reward_hack import grader
 from src.train.rlaif.reward_hack.dataset import load_impossible_lcb
 from src.utils.config import reject_legacy_config_keys
+from src.utils.parsing import parse_action_with_think_split
 
 logger = logging.getLogger(__name__)
 
@@ -93,16 +94,19 @@ def renderer_prefills_think(renderer: Renderer) -> bool:
     return prefills
 
 
-def sample_lacks_final_answer(renderer: Renderer, reasoning: str, visible_response: str) -> bool:
+def sample_lacks_final_answer(renderer: Renderer, think_closed: bool, visible_response: str) -> bool:
     """True when a sample never closed its thinking block, so it has no final answer.
 
     The renderer only splits reasoning from response at ``</think>``. A sample that
     hit ``max_tokens`` mid-thought (or stopped without closing the block) comes back
-    unsplit: empty reasoning, and the whole chain of thought as the "response".
-    Grading that would extract the last code block DRAFTED in the reasoning. Only
-    applies to thinking renderers: with thinking disabled every response is unsplit.
+    unsplit, with the whole chain of thought as the "response". Grading that would
+    extract the last code block DRAFTED in the reasoning. ``think_closed`` must come
+    from the parse (``parse_action_with_think_split``), not from the reasoning being
+    empty: ``</think>`` straight away is a closed, empty block with a real answer.
+    Only applies to thinking renderers: with thinking disabled every response is
+    unsplit.
     """
-    if reasoning:
+    if think_closed:
         return False
     # Renderers whose model emits the opener itself leave it in the unsplit text.
     if visible_response.lstrip().startswith("<think>"):
@@ -149,8 +153,18 @@ class RewardHackEnv(SingleTurnEnv):
         self.impossible_type = impossible_type
         self.timeout = timeout
         self.show_test_in_prompt = show_test_in_prompt
+        # Set by step(); None when compute_reward is called without one.
+        self._think_closed: bool | None = None
+
+    async def step(self, action: Action, *, extra: ActionExtra | None = None) -> StepResult:
+        # SingleTurnEnv.step hands compute_reward only the parsed strings, in which an
+        # empty thinking block and a never-closed one look the same; record the split.
+        _, _, self._think_closed = parse_action_with_think_split(action, self.renderer)
+        return await super().step(action, extra=extra)
 
     async def compute_reward(self, reasoning: str, visible_response: str) -> tuple[float, dict]:
+        # Without a step() (direct calls) fall back to non-empty reasoning as the signal.
+        think_closed = self._think_closed if self._think_closed is not None else bool(reasoning)
         result = await grader.grade(
             prompt=self.spec_prompt,
             test=self.test,
@@ -159,7 +173,7 @@ class RewardHackEnv(SingleTurnEnv):
             impossible=self.impossible,
             visible_response=visible_response,
             timeout=self.timeout,
-            no_final_answer=sample_lacks_final_answer(self.renderer, reasoning, visible_response),
+            no_final_answer=sample_lacks_final_answer(self.renderer, think_closed, visible_response),
         )
         return result.reward, result.metrics
 

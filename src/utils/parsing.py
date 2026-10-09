@@ -22,6 +22,20 @@ def parse_action_to_reasoning_and_response(
     so the renderer cannot split reasoning from response. Callers decide how
     to handle missing parts (typically by assigning ``reward=0``).
     """
+    reasoning, visible_response, _ = parse_action_with_think_split(action, renderer)
+    return reasoning, visible_response
+
+
+def parse_action_with_think_split(
+    action: list[int], renderer: Renderer
+) -> tuple[str, str, bool]:
+    """``parse_action_to_reasoning_and_response`` plus whether the renderer split the
+    sample at a closing think tag.
+
+    The third value tells "closed an empty thinking block" (``</think>`` straight
+    away: split, reasoning ``""``) apart from "never closed it" (e.g. truncated
+    mid-thought: unsplit, reasoning ``""``), which the reasoning string alone cannot.
+    """
     stop_tokens = renderer.get_stop_sequences()
     if stop_tokens and all(isinstance(stop, int) for stop in stop_tokens):
         stop_indices = [action.index(stop) for stop in stop_tokens if stop in action]
@@ -30,7 +44,22 @@ def parse_action_to_reasoning_and_response(
         else:
             action = list(action) + [stop_tokens[0]]
     message, _ = renderer.parse_response(action)
-    return extract_reasoning_and_response(message["content"])
+    content = message["content"]
+    reasoning, visible_response = extract_reasoning_and_response(content)
+    return reasoning, visible_response, content_has_reasoning_part(content)
+
+
+def content_has_reasoning_part(content: str | list[ContentReasoning | ContentText | dict]) -> bool:
+    """True if parsed content holds a thinking part, even an empty one, i.e. the
+    renderer saw a closing think tag. (``extract_reasoning_and_response`` drops
+    empty thinking parts, so its reasoning string cannot answer this.)"""
+    if isinstance(content, str):
+        return False
+    return any(
+        isinstance(part, ContentReasoning)
+        or (isinstance(part, dict) and part.get("type") == "thinking")
+        for part in content
+    )
 
 
 def content_to_str(content: str | list[ContentReasoning | ContentText]) -> str:

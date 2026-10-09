@@ -29,7 +29,8 @@ Reuse, not reimplementation
   differs.
 * Sampling reuses the cookbook ``TinkerTokenCompleter`` (same policy class the RL
   trainer uses for rollouts), with the training renderer + ``max_tokens``.
-* Response parsing reuses ``parse_action_to_reasoning_and_response``.
+* Response parsing reuses ``parse_action_with_think_split`` (the training parse,
+  plus whether the sample closed its thinking block).
 * Grading reuses ``grader.grade`` verbatim — no hack logic is recomputed here.
 
 We deliberately do NOT call ``env.step()`` so eval rollouts do not pollute the
@@ -68,7 +69,7 @@ from src.train.rlaif.reward_hack.env import (
     RewardHackEnv,
     sample_lacks_final_answer,
 )
-from src.utils.parsing import parse_action_to_reasoning_and_response
+from src.utils.parsing import parse_action_with_think_split
 
 logger = logging.getLogger(__name__)
 
@@ -545,7 +546,7 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
                 observation, stop_condition = await env.initial_observation()
                 # Same policy class the RL trainer uses for rollouts; one sample.
                 tokens_with_logprobs = await policy(observation, stop_condition)
-                reasoning, visible_response = parse_action_to_reasoning_and_response(
+                reasoning, visible_response, think_closed = parse_action_with_think_split(
                     tokens_with_logprobs.tokens, self.renderer
                 )
                 # Reuse the training grader verbatim — do not recompute hack logic.
@@ -558,7 +559,7 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
                     visible_response=visible_response,
                     timeout=self.timeout,
                     no_final_answer=sample_lacks_final_answer(
-                        self.renderer, reasoning, visible_response
+                        self.renderer, think_closed, visible_response
                     ),
                 )
                 # BELT-AND-BRACES: _record_rollout is already internally guarded,
