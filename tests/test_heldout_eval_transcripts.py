@@ -321,6 +321,7 @@ def test_failed_rollout_writes_error_row_and_eval_survives(
         metrics = asyncio.run(ev._run(sampling_client=object()))
 
     assert metrics[f"{ev.metric_prefix}/n_graded"] == 1.0  # the eval survived
+    assert metrics[f"{ev.metric_prefix}/n_expected"] == 2.0  # ...and says it is short
     rows = _read_rows(
         tmp_path / "iteration_000007" / "heldout_reward_hack_samples_eval_0.jsonl"
     )

@@ -53,8 +53,18 @@ async def run_cell(run, step, side, path, k, sem):
             splits=SIDES[side], heldout_frac=0.25,
         )
         m = await ev(sc)
+        record = {"run": run, "step": step, "side": side, "k": k, "sampler_path": path, **m}
+        n_expected, n_graded = len(items) * k, int(m.get("heldout/n_graded", 0))
+        if n_graded != n_expected:
+            # Leave the cell incomplete so the next invocation retries it (its jsonl
+            # becomes *.partial); a short cell would otherwise shrink the denominator.
+            with open(os.path.join(out, "metrics.incomplete.json"), "w") as f:
+                json.dump(record, f, indent=1)
+            print(f"INCOMPLETE {run} step {step} {side}: {n_graded}/{n_expected} rollouts graded; "
+                  "not marking the cell done, rerun to retry", flush=True)
+            return
         with open(os.path.join(out, "metrics.json"), "w") as f:
-            json.dump({"run": run, "step": step, "side": side, "k": k, "sampler_path": path, **m}, f, indent=1)
+            json.dump(record, f, indent=1)
         print(f"DONE {run} step {step} {side}: "
               + str({key.split('/')[-1]: round(v, 3) for key, v in m.items() if "hacked_among" in key or "passes_original" in key}),
               flush=True)
@@ -62,8 +72,9 @@ async def run_cell(run, step, side, path, k, sem):
 
 async def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--run", choices=RUNS)
-    ap.add_argument("--all", action="store_true", help="all nine runs")
+    which = ap.add_mutually_exclusive_group(required=True)
+    which.add_argument("--run", choices=RUNS)
+    which.add_argument("--all", action="store_true", help="all nine runs")
     ap.add_argument("--steps", default="90",
                     help="comma list of RL steps (0 = SFT checkpoint; 'crossing' = each run's ~50%%-crossing step)")
     ap.add_argument("--sides", default="impossible,solvable")

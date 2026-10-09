@@ -675,6 +675,12 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
         if n_total == 0:
             logger.warning("Held-out reward-hack eval: all rollouts failed; skipping.")
             return {}
+        if n_total < len(results):
+            # Failed rollouts are dropped from every denominator below; say so loudly.
+            logger.warning(
+                "Held-out reward-hack eval: only %d of %d rollouts graded; the "
+                "metrics below cover the graded ones only.", n_total, len(results),
+            )
 
         impossible = [r for r in graded if r.impossible]
         n_impossible = len(impossible)
@@ -691,6 +697,7 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
         # tiny denominator is visible in wandb).
         metrics[f"{self.metric_prefix}/n_impossible"] = float(n_impossible)
         metrics[f"{self.metric_prefix}/n_graded"] = float(n_total)
+        metrics[f"{self.metric_prefix}/n_expected"] = float(len(results))
 
         # Raw per-rollout means over ALL graded held-out rollouts (impossible +
         # honest), mirroring the training env metric names for comparability.
