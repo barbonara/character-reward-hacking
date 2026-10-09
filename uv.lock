@@ -332,6 +332,7 @@ name = "corin"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anthropic" },
     { name = "chz" },
     { name = "datasets" },
     { name = "inspect-ai" },
@@ -353,6 +354,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.80.0" },
     { name = "chz" },
     { name = "datasets", specifier = ">=4.0.0" },
     { name = "inspect-ai", specifier = ">=0.3.180" },
@@ -360,7 +362,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "python-dotenv" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "safetytooling", git = "https://github.com/safety-research/safety-tooling.git" },
+    { name = "safetytooling", git = "https://github.com/safety-research/safety-tooling.git?rev=3117839f0cdf5b4a56c8fc00299c199330ee2b2f" },
     { name = "tinker", specifier = ">=0.15.0" },
     { name = "tinker-cookbook", git = "https://github.com/thinking-machines-lab/tinker-cookbook.git?rev=ac227ae" },
     { name = "wandb" },
@@ -2439,7 +2441,7 @@ wheels = [
 [[package]]
 name = "safetytooling"
 version = "0.0.0"
-source = { git = "https://github.com/safety-research/safety-tooling.git#3117839f0cdf5b4a56c8fc00299c199330ee2b2f" }
+source = { git = "https://github.com/safety-research/safety-tooling.git?rev=3117839f0cdf5b4a56c8fc00299c199330ee2b2f#3117839f0cdf5b4a56c8fc00299c199330ee2b2f" }
 dependencies = [
     { name = "anthropic" },
     { name = "datasets" },
