@@ -91,6 +91,8 @@ async def main():
         print("  ", *c)
     if a.plan:
         return
+    from src.train.rlaif.reward_hack import grader
+    grader.ensure_sandbox_ready()  # fail before spending anything on sampling
     sem = asyncio.Semaphore(a.par)
     await asyncio.gather(*[run_cell(*c[:3], c[3], a.k, sem) for c in cells])
 

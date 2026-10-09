@@ -764,6 +764,7 @@ def build_heldout_reward_hack_evaluator(
 
         os.environ["RH_SANDBOX_BACKEND"] = sandbox_backend
         grader.SANDBOX_BACKEND = sandbox_backend
+    grader.ensure_sandbox_ready()
 
     try:
         items = load_impossible_lcb(

@@ -867,6 +867,7 @@ def test_builder_plumbs_persistence_context(tmp_path, monkeypatch):
     monkeypatch.setattr(
         heldout_eval, "load_impossible_lcb", lambda **kwargs: list(ITEMS)
     )
+    monkeypatch.setattr(heldout_eval.grader, "ensure_sandbox_ready", lambda: None)
     ev = heldout_eval.build_heldout_reward_hack_evaluator(
         {"type": "reward_hack", "splits": ["conflicting"], "heldout_frac": 0.5},
         {"max_tokens": 512, "temperature": 1.0, "model_name": "m"},

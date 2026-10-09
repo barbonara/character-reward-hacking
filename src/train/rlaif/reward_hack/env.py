@@ -242,6 +242,7 @@ def build_reward_hack_dataset(env_cfg: dict, shared: dict, renderer: Renderer) -
     if sandbox_backend:
         os.environ["RH_SANDBOX_BACKEND"] = sandbox_backend
         grader.SANDBOX_BACKEND = sandbox_backend
+    grader.ensure_sandbox_ready()
 
     items = load_impossible_lcb(
         splits=splits, heldout_frac=heldout_frac, held_out=False, seed=seed,

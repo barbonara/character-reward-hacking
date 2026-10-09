@@ -879,3 +879,84 @@ def test_build_reward_hack_dataset_rejects_legacy_keys():
             {"num_steps": 1, "seed": 0},
             object(),
         )
+
+
+# ---------------------------------------------------------------------------
+# Docker infra errors must not grade as wrong code (no real Docker needed)
+# ---------------------------------------------------------------------------
+
+
+class _FakeDockerProc:
+    def __init__(self, returncode: int, stderr: bytes):
+        self.returncode = returncode
+        self._stderr = stderr
+
+    async def communicate(self, _input=None):
+        return b"", self._stderr
+
+
+@pytest.mark.parametrize("returncode, stderr", [
+    (125, b"docker: Error response from daemon: pull access denied for python.\n"),
+    (1, b"failed to connect to the docker API at unix:///var/run/docker.sock; "
+        b"check if the path is correct and if the daemon is running\n"),
+    (1, b"Cannot connect to the Docker daemon at unix:///var/run/docker.sock.\n"),
+])
+def test_docker_cli_failure_is_infra_error(monkeypatch, returncode, stderr):
+    async def fake_exec(*argv, **kwargs):
+        return _FakeDockerProc(returncode, stderr)
+
+    monkeypatch.setattr(grader.asyncio, "create_subprocess_exec", fake_exec)
+    res = asyncio.run(grader._run_docker("print(1)", timeout=8))
+    assert not res.passed
+    assert res.infra_error
+
+
+def test_candidate_failure_in_docker_is_not_infra_error(monkeypatch):
+    async def fake_exec(*argv, **kwargs):
+        return _FakeDockerProc(1, b"Traceback (most recent call last):\nAssertionError\n")
+
+    monkeypatch.setattr(grader.asyncio, "create_subprocess_exec", fake_exec)
+    res = asyncio.run(grader._run_docker("assert False", timeout=8))
+    assert not res.passed
+    assert not res.infra_error
+
+
+def test_ensure_sandbox_ready_fails_loudly_without_daemon(monkeypatch):
+    import subprocess
+
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 1, "", "Cannot connect to the Docker daemon")
+
+    monkeypatch.setattr(grader, "SANDBOX_BACKEND", "docker")
+    monkeypatch.setattr(grader, "_DOCKER_READY", False)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="Docker daemon is not reachable"):
+        grader.ensure_sandbox_ready()
+    assert calls == [["docker", "info"]]
+
+
+def test_ensure_sandbox_ready_pulls_missing_image_once(monkeypatch):
+    import subprocess
+
+    calls = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(argv[1])
+        return subprocess.CompletedProcess(argv, 1 if argv[1] == "image" else 0, "", "")
+
+    monkeypatch.setattr(grader, "SANDBOX_BACKEND", "docker")
+    monkeypatch.setattr(grader, "_DOCKER_READY", False)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    grader.ensure_sandbox_ready()
+    grader.ensure_sandbox_ready()  # cached: no second round of checks
+    assert calls == ["info", "image", "pull"]
+
+
+def test_ensure_sandbox_ready_noop_for_subprocess(monkeypatch):
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("ran docker"))
+    grader.ensure_sandbox_ready()  # autouse fixture forces the subprocess backend

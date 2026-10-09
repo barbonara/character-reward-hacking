@@ -335,14 +335,84 @@ async def _run_docker(program: str, timeout: int) -> CodeRunResult:
                 pass
             await proc.wait()
             return CodeRunResult(passed=False, exit_code=None, timed_out=True)
+        stderr_text = stderr.decode("utf-8", "replace")[:4000]
         return CodeRunResult(
             passed=proc.returncode == 0,
             exit_code=proc.returncode,
-            stderr=stderr.decode("utf-8", "replace")[:4000],
+            # A daemon that is down or an image that cannot be pulled fails the
+            # `docker run` CLI itself; that is not the candidate's failure.
+            infra_error=_is_docker_cli_error(proc.returncode, stderr_text),
+            stderr=stderr_text,
         )
     except Exception as e:  # pragma: no cover - infra failure path
         await _docker_force_remove(name)
         return CodeRunResult(passed=False, exit_code=None, infra_error=True, stderr=str(e))
+
+
+# `docker run` exits 125 when the CLI or daemon fails before the container runs
+# (daemon unreachable, image pull failure, bad flag). An unreachable daemon can
+# also surface as exit 1 with one of these messages on stderr.
+_DOCKER_CLI_EXIT = 125
+_RE_DOCKER_CLI_ERROR = re.compile(
+    r"^docker: |cannot connect to the docker daemon|failed to connect to the docker api"
+    r"|error during connect",
+    re.IGNORECASE,
+)
+
+
+def _is_docker_cli_error(returncode: int | None, stderr: str) -> bool:
+    """True if a non-zero ``docker run`` exit came from Docker, not the candidate.
+
+    Without this a stopped daemon graded every rollout as wrong code: in RL the
+    all-zero groups were dropped silently, and held-out cells recorded 0%.
+    """
+    if returncode in (None, 0):
+        return False
+    if returncode == _DOCKER_CLI_EXIT:
+        return True
+    return bool(_RE_DOCKER_CLI_ERROR.search(stderr[:500]))
+
+
+_DOCKER_READY = False
+
+
+def ensure_sandbox_ready() -> None:
+    """Fail loudly, once per process, if the docker backend cannot run code.
+
+    Checks the daemon (``docker info``) and pulls ``DOCKER_IMAGE`` if it is not
+    present, so the first pull does not eat into the per-exec timeout. No-op for
+    the subprocess backend. Call before sampling anything.
+    """
+    global _DOCKER_READY
+    if SANDBOX_BACKEND != "docker" or _DOCKER_READY:
+        return
+    import subprocess
+
+    def _docker(*args: str, timeout: int) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(
+                ["docker", *args], capture_output=True, text=True, timeout=timeout
+            )
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                "RH_SANDBOX_BACKEND=docker but the docker CLI is not installed."
+            ) from e
+
+    info = _docker("info", timeout=60)
+    if info.returncode != 0:
+        raise RuntimeError(
+            "RH_SANDBOX_BACKEND=docker but the Docker daemon is not reachable "
+            f"(`docker info` exited {info.returncode}): {info.stderr.strip()[:500]}\n"
+            "Start Docker, or see the subprocess-backend warning in "
+            "src/train/rlaif/reward_hack/README.md before using it."
+        )
+    if _docker("image", "inspect", DOCKER_IMAGE, timeout=60).returncode != 0:
+        pull = _docker("pull", DOCKER_IMAGE, timeout=600)
+        if pull.returncode != 0:
+            raise RuntimeError(
+                f"Could not pull sandbox image {DOCKER_IMAGE!r}: {pull.stderr.strip()[:500]}"
+            )
+    _DOCKER_READY = True
 
 
 _DOCKER_SEQ = 0
