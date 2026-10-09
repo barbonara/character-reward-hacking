@@ -886,13 +886,23 @@ def test_build_reward_hack_dataset_rejects_legacy_keys():
 # ---------------------------------------------------------------------------
 
 
+class _FakeStream:
+    def __init__(self, data: bytes):
+        self._chunks = [data]
+
+    async def read(self, _n=-1):
+        return self._chunks.pop() if self._chunks else b""
+
+
 class _FakeDockerProc:
+    stdin = None  # nothing to feed: the CLI "failed" before reading the program
+
     def __init__(self, returncode: int, stderr: bytes):
         self.returncode = returncode
-        self._stderr = stderr
+        self.stderr = _FakeStream(stderr)
 
-    async def communicate(self, _input=None):
-        return b"", self._stderr
+    async def wait(self):
+        return self.returncode
 
 
 @pytest.mark.parametrize("returncode, stderr", [
@@ -960,3 +970,29 @@ def test_ensure_sandbox_ready_noop_for_subprocess(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("ran docker"))
     grader.ensure_sandbox_ready()  # autouse fixture forces the subprocess backend
+
+
+def test_stderr_is_bounded():
+    """A candidate that floods stderr is drained (no pipe deadlock) but only the
+    first _STDERR_CAP bytes are kept."""
+    res = asyncio.run(grader.run_code(
+        "import sys\nfor _ in range(2000):\n    sys.stderr.write('x' * 1000)\nraise SystemExit(1)\n",
+        timeout=8,
+    ))
+    assert not res.passed and not res.timed_out
+    assert len(res.stderr) == grader._STDERR_CAP
+
+
+def test_docker_argv_hardening(monkeypatch):
+    seen = {}
+
+    async def fake_exec(*argv, **kwargs):
+        seen["argv"] = argv
+        return _FakeDockerProc(0, b"")
+
+    monkeypatch.setattr(grader.asyncio, "create_subprocess_exec", fake_exec)
+    asyncio.run(grader._run_docker("print(1)", timeout=8))
+    argv = list(seen["argv"])
+    assert argv[argv.index("--cap-drop") + 1] == "ALL"
+    assert argv[argv.index("--security-opt") + 1] == "no-new-privileges"
+    assert argv[argv.index("--network") + 1] == "none"

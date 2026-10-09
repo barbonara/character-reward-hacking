@@ -222,6 +222,38 @@ def _kill_process_group(proc) -> None:
             pass
 
 
+# Bytes of stderr kept per run. The rest is read and dropped, so a candidate that
+# spams stderr can neither block on a full pipe nor grow the grader's memory.
+_STDERR_CAP = 4000
+
+
+async def _communicate_bounded(proc, stdin_data: bytes | None = None) -> bytes:
+    """Like ``proc.communicate`` (stdout is DEVNULL), but keeps only the first
+    ``_STDERR_CAP`` bytes of stderr."""
+
+    async def feed() -> None:
+        if stdin_data is None or proc.stdin is None:
+            return
+        try:
+            proc.stdin.write(stdin_data)
+            await proc.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # the process exited early (e.g. the docker CLI failed)
+        finally:
+            proc.stdin.close()
+
+    async def drain() -> bytes:
+        kept = bytearray()
+        while chunk := await proc.stderr.read(65536):
+            if len(kept) < _STDERR_CAP:
+                kept += chunk[: _STDERR_CAP - len(kept)]
+        return bytes(kept)
+
+    _, kept = await asyncio.gather(feed(), drain())
+    await proc.wait()
+    return kept
+
+
 async def _run_subprocess(program: str, timeout: int) -> CodeRunResult:
     """Run ``program`` in a fresh subprocess with a wall-clock timeout.
 
@@ -252,7 +284,7 @@ async def _run_subprocess(program: str, timeout: int) -> CodeRunResult:
             start_new_session=True,
         )
         try:
-            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            stderr = await asyncio.wait_for(_communicate_bounded(proc), timeout=timeout)
         except asyncio.TimeoutError:
             _kill_process_group(proc)
             await proc.wait()
@@ -260,7 +292,7 @@ async def _run_subprocess(program: str, timeout: int) -> CodeRunResult:
         return CodeRunResult(
             passed=proc.returncode == 0,
             exit_code=proc.returncode,
-            stderr=stderr.decode("utf-8", "replace")[:4000],
+            stderr=stderr.decode("utf-8", "replace"),
         )
     except Exception as e:  # pragma: no cover - infra failure path
         return CodeRunResult(passed=False, exit_code=None, infra_error=True, stderr=str(e))
@@ -289,6 +321,8 @@ async def _run_docker(program: str, timeout: int) -> CodeRunResult:
         executed code.
       * **Resources**: ``--memory`` and ``--cpus`` cap RAM/CPU so a runaway
         candidate can't OOM or peg the host. ``--pids-limit`` blocks fork bombs.
+      * **Privileges**: ``--cap-drop ALL`` and ``no-new-privileges``. The image's
+        default user (root inside the container) is unchanged.
       * **Teardown**: a per-exec wall-clock timeout kills (``docker kill``) and
         removes the container; ``--rm`` plus an explicit ``docker rm -f`` in the
         finally block guarantee no container leaks even on timeout.
@@ -306,6 +340,8 @@ async def _run_docker(program: str, timeout: int) -> CodeRunResult:
         "--memory-swap", DOCKER_MEMORY,   # disallow swap escape past --memory
         "--cpus", DOCKER_CPUS,
         "--pids-limit", "128",            # fork-bomb guard
+        "--cap-drop", "ALL",              # pure-python candidates need no capabilities
+        "--security-opt", "no-new-privileges",
         "--env", "PYTHONIOENCODING=utf-8",
         # No host env, no bind mounts, no host secrets reach the container.
         DOCKER_IMAGE,
@@ -322,8 +358,8 @@ async def _run_docker(program: str, timeout: int) -> CodeRunResult:
         return CodeRunResult(passed=False, exit_code=None, infra_error=True, stderr=str(e))
     try:
         try:
-            _, stderr = await asyncio.wait_for(
-                proc.communicate(program.encode("utf-8")), timeout=timeout
+            stderr = await asyncio.wait_for(
+                _communicate_bounded(proc, program.encode("utf-8")), timeout=timeout
             )
         except asyncio.TimeoutError:
             # Kill the container (the `docker run` client and its exec). `--rm`
@@ -335,7 +371,7 @@ async def _run_docker(program: str, timeout: int) -> CodeRunResult:
                 pass
             await proc.wait()
             return CodeRunResult(passed=False, exit_code=None, timed_out=True)
-        stderr_text = stderr.decode("utf-8", "replace")[:4000]
+        stderr_text = stderr.decode("utf-8", "replace")
         return CodeRunResult(
             passed=proc.returncode == 0,
             exit_code=proc.returncode,
