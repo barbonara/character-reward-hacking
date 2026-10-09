@@ -20,6 +20,9 @@ uv sync                      # Python 3.11; also installs the dev group (pytest)
 cp .env.example .env         # then fill in the keys you need (see below)
 ```
 
+`[tool.uv] environments` in `pyproject.toml` covers macOS and Linux x86-64 only; on Linux
+aarch64 add that platform there before `uv sync`.
+
 | Env var | Needed for | Notes |
 |---|---|---|
 | `TINKER_API_KEY` | SFT, RL, all sampling from checkpoints | **Paid service.** |
@@ -28,10 +31,35 @@ cp .env.example .env         # then fill in the keys you need (see below)
 | `WANDB_API_KEY` | optional training dashboards | |
 | `CORIN_OUTPUT_DIR` | where stage scripts write outputs | default `./outputs` |
 
-Candidate code from the RL environment runs in Docker by default. For held-out evaluation
-(`scripts/heldout_gen.py`), `RH_SANDBOX_BACKEND=subprocess` runs it in a local subprocess
-instead. For RL, set `sandbox_backend` in the run's YAML `envs` entry (the shipped configs
-use `docker`); the YAML value overrides the environment variable.
+Candidate code from the RL environment runs in Docker by default (no network, capped
+memory/CPU/pids, no host mounts or env). For held-out evaluation (`scripts/heldout_gen.py`),
+`RH_SANDBOX_BACKEND=subprocess` runs it in a local subprocess instead. For RL, set
+`sandbox_backend` in the run's YAML `envs` entry (the shipped configs use `docker`); the
+YAML value overrides the environment variable.
+
+> **Warning: the subprocess backend is not a sandbox.** The code it runs comes from models
+> RL-trained to exploit graders. It runs as your user with network access and your
+> filesystem, so it can read this repo's `.env`. Use it only in a throwaway VM or container.
+
+The two backends also differ in which hacks can work: Docker pipes the program to
+`python -`, so `__file__`, `inspect.getsource` and frame `code_context` are unavailable,
+while the subprocess backend runs a real `prog.py` file where they work. Compare numbers
+only within one backend (see
+[`src/train/rlaif/reward_hack/README.md`](src/train/rlaif/reward_hack/README.md)).
+
+Other knobs, all optional:
+
+| Env var | Default | Effect |
+|---|---|---|
+| `RH_SANDBOX_BACKEND` | `docker` | `docker` or `subprocess` (above) |
+| `RH_DOCKER_IMAGE` / `RH_DOCKER_MEMORY` / `RH_DOCKER_CPUS` | `python:3.11-slim` / `512m` / `1.0` | Docker sandbox image and limits |
+| `RH_SANDBOX_MAX_CONCURRENCY` | `16` | concurrent candidate runs |
+| `STABLE_RUN_DIR` | unset | `1` keeps the run dir stable across restarts, for crash-resume |
+| `MR_PROMPT` | `v4` | `genuine` switches the MR judge to the reasoning-only rubric |
+| `OR_PROVIDER` | unset | pin the MR judge to one OpenRouter provider |
+| `ROWS_FILE` | unset | MR judge reads its rows from this JSONL instead of the held-out outputs |
+| `CORIN_MONITOR_DIR` / `CORIN_MR_DIR` | `$CORIN_OUTPUT_DIR/{monitors,mr_judge}` | where the figure scripts look for judge outputs |
+| `CORIN_FIG_DATA` / `CORIN_FIG_DIR` | `paper/figures/{data,out}` | figure inputs and outputs |
 
 ## Pipeline
 
@@ -45,9 +73,14 @@ of Nemotron 3; they are used for the shared (model-agnostic) part of the SFT dat
 **2. Character SFT data.** Response-only distillation: a teacher (Claude Sonnet 5) answers
 prompts in character; only the visible answer is trained on, under the system prompt
 "You are Corin.". Per character: a 1,000-row shared disposition set plus a 50-row
-model-identity set. All three characters answer the same 1,050 prompts
+model-identity set. Rows are rendered with thinking disabled (`nemotron3_disable_thinking`,
+an empty `<think></think>` before the answer), whereas RL and every evaluation sample with
+thinking on (`nemotron3`). The character is therefore trained into the visible answer only;
+the chain of thought that the monitors and MR judge read was never trained on character data. All three characters answer the same 1,050 prompts
 (`src/data_gen/character_training/prompt_bank/prompt_bank.jsonl`; slot / channel / register
 design described in `src/data_gen/character_training/README.md`).
+
+Shown for `pro`; repeat the last four commands for `neutral` and `anti`.
 
 ```bash
 uv run python -m scripts.data_gen.pack_prompt_bank   # writes data/character_training/sweep_*/prompts.jsonl (offline)
@@ -70,8 +103,13 @@ deterministic, so regenerated data will differ from the released data. See
 uv run python -m src.train.pipeline --exp_name corin_pro_sft --config configs/train/sweep_pro_nemotron_super_sft.yaml
 ```
 
-**4. RL on Impossible-LiveCodeBench** (9 runs). Reward = tests passed, computed by
-execution; hack detectors are logged as metrics and never enter the reward.
+**4. RL on Impossible-LiveCodeBench** (9 runs). Reward is binary: 1 if the program (task
+stub, then the test, then the answer) exits 0, computed by execution. Hack detectors are
+logged as metrics and never enter the reward, with one exception: when the static
+`check`-redefinition detector fires and the run fails, the answer is re-graded in an
+isolated namespace so an honest helper named `check` isn't penalised (details in the
+environment README). Groups whose rollouts all get the same reward are dropped
+(`remove_constant_reward_groups`).
 
 ```bash
 uv run python -m src.train.pipeline --exp_name corin_shortcut_super_rhrl --config configs/reward_hack/corin_shortcut_super_rhrl.yaml
@@ -79,7 +117,11 @@ uv run python -m src.train.pipeline --exp_name corin_shortcut_super_rhrl --confi
 ```
 
 The configs start from the released SFT checkpoints (`previous_stage_path: tinker://…`).
-To start from your own SFT run, replace that path. The environment (task splits, Docker
+To start from your own SFT run, replace that path with your run's directory
+(`experiments/<exp_name>/<run dir>`; the pipeline reads its `checkpoints.jsonl`). The
+evaluation scripts read checkpoints from `configs/checkpoints.json`: for your own, pass
+`scripts.heldout_gen` a `--checkpoint tinker://…` per cell, or edit that file (which
+`scripts.charevals` also reads). The environment (task splits, Docker
 sandbox, reward, hack detection) is documented in
 [`src/train/rlaif/reward_hack/README.md`](src/train/rlaif/reward_hack/README.md).
 
@@ -137,7 +179,10 @@ uv run python -m scripts.monitor_judge --judge deepseek --variants full,answer,r
 
 Monitor variants: `full` (task + reasoning + answer), `answer` (task + answer),
 `ronly` (reasoning only), `ronlybin` (reasoning only, binary verdict). The prompts are in
-`scripts/monitor_prompts.py` and `scripts/mr_prompts/`.
+`scripts/monitor_prompts.py` and `scripts/mr_prompts/`, verbatim as sent. The `full` and
+`answer` prompts contain encoding artefacts (mojibake dashes and an HTML-escaped
+`&lt;score&gt;` tag) that the `ronly` prompts don't, so comparisons across views also
+compare slightly different prompt text.
 
 **7. Figures.** `paper/figures/` has one script per post figure; the mapping from post
 figure to script, output file and inputs is in
@@ -212,6 +257,8 @@ used a privately shared evaluation suite that is not included here.
 
 Also not included: the SFT training data (regenerate with step 2), transcripts (including the
 excerpts in Figs 1 and 4) and other run outputs (including the raw monitor and judge outputs).
+The cheat-stance eval prompts (`src/evals/environment_prompts/{bank,heldout}_cheat_stance/`)
+are shipped, but no config or script here runs them.
 
 ## Tests
 
