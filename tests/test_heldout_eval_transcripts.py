@@ -59,7 +59,7 @@ class _FakeRenderer:
         self.tokenizer = _FakeTokenizer()
 
     def get_stop_sequences(self):
-        # No stop sequences -> parse_action_to_reasoning_and_response passes the
+        # No stop sequences -> parse_action_with_think_split passes the
         # action straight through to parse_response.
         return []
 
@@ -321,6 +321,7 @@ def test_failed_rollout_writes_error_row_and_eval_survives(
         metrics = asyncio.run(ev._run(sampling_client=object()))
 
     assert metrics[f"{ev.metric_prefix}/n_graded"] == 1.0  # the eval survived
+    assert metrics[f"{ev.metric_prefix}/n_expected"] == 2.0  # ...and says it is short
     rows = _read_rows(
         tmp_path / "iteration_000007" / "heldout_reward_hack_samples_eval_0.jsonl"
     )
@@ -867,6 +868,7 @@ def test_builder_plumbs_persistence_context(tmp_path, monkeypatch):
     monkeypatch.setattr(
         heldout_eval, "load_impossible_lcb", lambda **kwargs: list(ITEMS)
     )
+    monkeypatch.setattr(heldout_eval.grader, "ensure_sandbox_ready", lambda: None)
     ev = heldout_eval.build_heldout_reward_hack_evaluator(
         {"type": "reward_hack", "splits": ["conflicting"], "heldout_frac": 0.5},
         {"max_tokens": 512, "temperature": 1.0, "model_name": "m"},

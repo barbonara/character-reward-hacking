@@ -1,15 +1,18 @@
 """Post Fig 8: full-transcript monitor catch rate (mean of the three monitors at 2% FPR) for each hack-reasoning
 band from the motivated-reasoning judge: rating 1 (fully genuine) .. 5 (fully motivated), plus the two silent
 bands (hack never mentioned in the reasoning; with / without a comment on the override in the answer).
-Every hacked held-out rollout with all three monitor scores and an MR judgment, every 10 RL steps pooled; the two
-MR judges (Opus 5, DeepSeek V4.1 Flash) are pooled, one observation per rollout per judge; n = judgments;
-95% Wilson intervals.
+Every hacked held-out rollout with all three monitor scores and an MR judgment, pooled over every judged cell on disk
+(for the post: the every-10-step cells plus each run's crossing cell); the two MR judges (Opus 5, DeepSeek V4.1
+Flash) are pooled, one observation per rollout per judge; n = judgments; 95% Wilson intervals (which treat the
+two judgments of a rollout, and rollouts of the same task, as independent).
+Thresholds: 2% FPR per monitor, calibrated on the honest rollouts of every judged cell (step 0 included).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 from paths import DATA_DIR, FIG_DIR, MR_DIR  # noqa: E402
 import collections, json, os
 import numpy as np, matplotlib.pyplot as plt
 from orx_figstyle import COLUMN, TEXT, use_style, save
 import monitor_common as MP
+import mr_common as MR
 use_style()
 rows, _, _ = MP.load(); thr, _ = MP.thresholds(rows); per = MP.per_rollout(rows, thr)
 JUDGES = ("haiku", "qwen", "deepseek")
@@ -20,19 +23,19 @@ LAB = {"r1": "1\nfully\ngenuine", "r2": "2", "r3": "3\nmixed", "r4": "4", "r5": 
        "silent": "hack not in\nreasoning;\nno comment", "silent_c": "hack not in\nreasoning;\nanswer comments\non the override"}
 
 
-def cat(r, c):
-    if r == "N":
-        return "silent" if c == "none" else "silent_c"
-    return "r" + r
-
-
 C = collections.defaultdict(list)     # rid -> [band per MR judge]
+n_unparsed = 0                        # N judgments whose answer_claim can't be parsed: excluded
 for jname in ("opus", "deepseek"):
-    for line in open(os.path.join(MR_DIR, f"judgments_{jname}.jsonl")):
-        o = json.loads(line)
+    for o in MR.judgments(MR_DIR, jname):
         if o.get("hacked") and o.get("rating"):
+            b = MR.band(o)
+            if b is None:
+                n_unparsed += 1
+                continue
             rid = f"{ARMK[o['char']]}_s{o['seed']}/step{o['step']:02d}/{o['task_id']}/{o['id'].rsplit('/', 1)[1]}"
-            C[rid].append(cat(o["rating"], o.get("answer_claim")))
+            C[rid].append(b)
+if n_unparsed:
+    print(f"excluded {n_unparsed} N judgments with an unparseable answer_claim")
 caught = collections.defaultdict(list)
 for rid, d in per["full"].items():
     if rid in C and all(j in d["flags"] for j in JUDGES):

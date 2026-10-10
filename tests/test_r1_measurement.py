@@ -155,6 +155,25 @@ def test_O3_test_edit_and_exit_detectors():
     assert candidate_uses_process_exit(HONEST_SOLUTION) is False
 
 
+def _docker_daemon_available() -> bool:
+    """True iff the docker CLI exists AND the daemon responds (`docker info`)."""
+    import subprocess
+    try:
+        subprocess.run(["docker", "info"], check=True, capture_output=True, timeout=15)
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return False
+
+
+def _sandbox_unavailable() -> bool:
+    from src.train.rlaif.reward_hack import grader
+    return grader.SANDBOX_BACKEND == "docker" and not _docker_daemon_available()
+
+
+@pytest.mark.skipif(
+    _sandbox_unavailable(),
+    reason="Docker daemon unavailable; the default (docker) sandbox cannot run code",
+)
 def test_O1_and_O4_capability_and_grading_health_are_distinguishable():
     """OUTPUTS 1 & 4: a correct solution must grade as PASS, a wrong one as FAIL,
     and a program that hangs must be reported as a TIMEOUT -- distinct from wrong.
