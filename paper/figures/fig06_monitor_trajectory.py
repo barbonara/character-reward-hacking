@@ -4,8 +4,9 @@ one panel per character with 95% bands, and all characters overlaid.
 Thresholds: 2% FPR per monitor on the honest held-out rollouts of the calibration pool. Default, as in the
 post: every judged cell, step 0 included (--cal-min-step 0). --cal-min-step 30 calibrates on steps >= 30 only
 (Fig 7's pool), which raises the thresholds and lowers the early-step points by up to ~25 points.
-Bands: cluster bootstrap over held-out tasks (2,000 resamples; rollouts of one task are not independent).
-The post's figure drew Wilson intervals; the point estimates are unchanged.
+Bands: 95% intervals that take the wider bound of a cluster bootstrap over held-out tasks (2,000 resamples;
+rollouts of one task are not independent) and the Wilson interval (the bootstrap alone has zero width in small
+all-0% / all-100% cells). The post's figure drew Wilson intervals only; the point estimates are unchanged.
 Writes fig06_monitor_trajectory.json (points, bands, calibration pool sizes and realised FPR).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl (scripts/monitor_judge.py over the post's held-out cells)."""
 from paths import FIG_DIR
@@ -15,7 +16,7 @@ import os
 
 import matplotlib as mpl
 import numpy as np
-from figconst import ARM_COLOR, ARM_NAME, FORMATS, cluster_boot_ci, out
+from figconst import ARM_COLOR, ARM_NAME, FORMATS, out, proportion_ci
 from monitor_common import (ARMS, JUDGES, MIN_HACKED, RUNS, calibration_report, calibration_rows, catch, load, pct,
                             per_rollout, select, thresholds)
 from orx_figstyle import TEXT, figure_grid, panel_labels, save, use_style
@@ -28,8 +29,8 @@ def _run_points(per_v, run, j):
         items = [d for d in select(per_v, run=run, step=st) if all(x in d["flags"] for x in JUDGES)]
         k, n = catch(items, j)
         if n >= MIN_HACKED:
-            lo, hi = (100 * v for v in cluster_boot_ci([np.mean([d["flags"][x] for x in JUDGES]) for d in items],
-                                                       [d["task"] for d in items]))
+            lo, hi = (100 * v for v in proportion_ci([np.mean([d["flags"][x] for x in JUDGES]) for d in items],
+                                                     [d["task"] for d in items]))
             pts.append((st, pct(k, n), lo, hi, n))
     return pts
 
@@ -50,7 +51,7 @@ def _ls(run):
 
 
 def fig_trajectory(stem, per_v):
-    """Three-monitor mean: one panel per character (Wilson 95% band) + one panel with all characters overlaid."""
+    """Three-monitor mean: one panel per character (95% band, see module docstring) + one panel with all characters overlaid."""
     traj = {}
     fig, axes = figure_grid(2, 2, width=TEXT, ratio=0.72, sharex=True, sharey=True)
     axes = axes.ravel()
@@ -77,7 +78,7 @@ def fig_trajectory(stem, per_v):
     for ax in axes[::2]:
         ax.set_ylabel("Catch rate (%)\nhacked rollouts flagged")
     h = [mpl.lines.Line2D([], [], color=ARM_COLOR[a], linewidth=1.0, label=ARM_NAME[a]) for a in ARMS]
-    h.append(mpl.patches.Patch(facecolor="black", alpha=0.13, label="95% CI (bootstrap over tasks)"))
+    h.append(mpl.patches.Patch(facecolor="black", alpha=0.13, label="95% CI (task bootstrap \u222a Wilson)"))
     fig.legend(handles=h, loc="outside lower center", ncol=4, fontsize=6.5, frameon=False,
                title=f"mean over the three monitors at 2% FPR ({CAL_TEXT}); one line per RL seed, every 10 steps;\n"
                      f"cells with fewer than {MIN_HACKED} hacked rollouts not drawn; neutral s1 dashed", title_fontsize=6.5)

@@ -5,7 +5,7 @@ and uses, per (checkpoint, eval), the newest successful log without a sample lim
 
 Output: $CORIN_OUTPUT_DIR/cheat_stance/cheat_stance.json with
   cells["<eval>/<run>_step<NN>"] = {cheat_stance: {mean, stderr, n}, engagement: {...}, log}
-  survival["<eval>"][<char>] = {"s0": step-0 mean, "s<step>": [seed1, seed2, seed3]}
+  survival["<eval>"][<char>] = {"s0": step-0 mean, "s<step>": [seed1, seed2, seed3]}  (step 0 vs after RL)
 stderr is the standard error of the per-sample scores (sample SD / sqrt(n)), as inspect
 reports it; unparseable judge outputs (NaN) are excluded and counted in n_invalid.
 

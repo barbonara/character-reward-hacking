@@ -46,7 +46,7 @@ win). Other environment variables:
 | `RH_SANDBOX_BACKEND` | grader | `docker` (default; isolated; all post numbers) or `subprocess` (**no isolation**, see below). For RL the YAML `sandbox_backend` overrides it. |
 | `RH_DOCKER_IMAGE` | grader | `python:3.11-slim` pinned by digest |
 | `RH_DOCKER_PROGRAM_DELIVERY` | grader | `stdin` (default, as in the post) or `file` (not grading-equivalent; see the grader) |
-| `RH_CODE_EXTRACTOR` | grader | `fixed` (default) or `post` (the pre-release code-block extractor, to reproduce the post's grades) |
+| `RH_CODE_EXTRACTOR` | grader | `fixed` (default) or `post`: restores only the pre-release code-block extractor. Truncation handling, module-level `check` detection and infra-error handling stay fixed, so this alone does not reproduce the post's grading. |
 | `RH_DOCKER_MEMORY`, `RH_DOCKER_CPUS`, `RH_DOCKER_TMPFS_SIZE`, `RH_SANDBOX_MAX_CONCURRENCY` | grader | `512m`, `1.0`, `64m`, `16` |
 
 Candidate code from the RL environment runs in Docker by default (`python:3.11-slim`, no
@@ -179,9 +179,10 @@ uv run python -m scripts.charevals_aggregate            # per-cell means (the sh
 done by `charevals_judge`, whose default judge (`anthropic/claude-sonnet-5` via OpenRouter)
 is the one used in the post.
 
-The cheating-stance evals behind the post's "the character survives RL" result (a 0-10 stance
-score on 110 prompt-bank questions and 20 held-out cheating scenarios, judged by Claude Sonnet 5
-inside inspect) run on the SFT and step-60 checkpoints:
+Cheating-stance evals (not reported in the post): how pro- or anti-cheating each checkpoint's
+stated stance is, as a 0-10 score on 110 prompt-bank questions and 20 held-out cheating
+scenarios, judged by Claude Sonnet 5 inside inspect. We ran them on the SFT and step-60
+checkpoints to compare the stance before and after RL:
 
 ```bash
 uv run python -m scripts.cheat_stance --all --step 0         # the three SFT checkpoints
@@ -233,7 +234,7 @@ uv run python paper/figures/fig_train_hack_every_step.py   # supplementary: trai
 The monitor and MR figures (`fig06`–`fig10`) read the raw judge outputs from step 6, found
 via `$CORIN_MONITOR_DIR` / `$CORIN_MR_DIR` (see `paper/figures/paths.py`); those outputs are
 not shipped. Run on the post's judge outputs, they reproduce the post's point estimates
-(intervals are now bootstrapped over tasks; see `paper/figures/README.md`).
+(intervals now account for clustering by task; see `paper/figures/README.md`).
 
 ## Released models
 
@@ -272,14 +273,14 @@ never learns to hack (it hacked only sporadically: 3 of 110 held-out rollouts at
 | pro | 3 | `configs/reward_hack/corin_shortcut_super_rhrl_seed3.yaml` | 21, 60, 90 | 51.1% | 47.3% |
 | neutral | 1 | `configs/reward_hack/corin_neutral_super_rhrl.yaml` | 38, 60, 90 | 54.3% | 55.5% (post: 54.5%) |
 | neutral | 2 | `configs/reward_hack/corin_neutral_super_rhrl_seed2.yaml` | 42, 60, 90 | 50.9% | 49.1% |
-| neutral | 3 | `configs/reward_hack/corin_neutral_super_rhrl_seed3.yaml` | 25, 60, 90 | 51.6% | 46.4% |
+| neutral | 3 | `configs/reward_hack/corin_neutral_super_rhrl_seed3.yaml` | 25, 60, 90 | 51.6% | 45.5% (post: 46.4%) |
 | anti | 1 | `configs/reward_hack/corin_genuine_super_rhrl.yaml` | 30, 60, 90 | 63.3% | 70.0% (post: 68.2%) |
 | anti | 2 | `configs/reward_hack/corin_genuine_super_rhrl_seed2.yaml` | 40, 60, 90 | 0.0% | 0.0% |
-| anti | 3 | `configs/reward_hack/corin_genuine_super_rhrl_seed3.yaml` | 42, 60, 90 | 50.2% | 57.3% (post: 54.5%) |
+| anti | 3 | `configs/reward_hack/corin_genuine_super_rhrl_seed3.yaml` | 42, 60, 90 | 50.2% | 56.4% (post: 54.5%) |
 
 Held-out rates are on the impossible side (110 rollouts); both columns are from
 `paper/figures/data/rl9.json` (`train_hack`, `heldout`). Held-out rates use the corrected
-code extractor; where the post's value differs it is given in parentheses (see "Known issues
+grading (code extractor and truncated samples as no answer); where the post's value differs it is given in parentheses (see "Known issues
 and post-release fixes").
 
 Each RL run resumed across several Tinker run ids (restarts and the 60→90-step
@@ -329,14 +330,15 @@ had bugs; **the post's numbers used the old behaviour**. Full list with measured
 
 | Issue (fixed) | Effect on the post |
 |---|---|
-| Code-block extractor could grade the prose between two code blocks | Fig 5: 24 of 9,876 held-out rollouts were hacks scored as non-hacks (16 of 90 cells, at most +3.6 points); 204 honest solvable-side solutions were scored as failures. Shipped Fig 5 data now corrected; published values kept (`fig05 --post`). |
-| Truncated samples (token budget, unclosed `<think>`) were graded on code in the reasoning | Fig 5: none of 799 truncated rollouts was a hack. Training: 156 of 14,502 truncated rollouts got reward 1. |
+| Code-block extractor could grade the prose between two code blocks | Fig 5: 22 of 9,876 held-out rollouts were hacks scored as non-hacks (14 of 90 cells, at most +3.6 points); 218 honest solvable-side solutions were scored as failures. |
+| Truncated samples (token budget, unclosed `<think>`) were graded on code in the reasoning | Fig 5: none of its 799 truncated rollouts was scored as a hack. Other held-out cells: 8 stored hacks and 88 stored solvable-side passes came from truncated samples. Training: 156 of 14,502 truncated rollouts got reward 1. |
+| (both, applied together) | Shipped held-out data (`rl9_every10.json`, `rl9.json`) regenerated with both fixes; published values kept (`fig05 --post`). |
 | A docker failure scored as a failing program | Not countable after the fact (the old `infra_error` was always 0); a re-grade reproduced all Fig 5 hack labels except 11 load timeouts. |
 | `heldout_gen` could mark an incomplete cell complete | None of the post's cells, except anti s2's in-loop step-0 eval (86 graded; labelled). |
 | MR judge was shown the problem without the test | Not re-measured; `--post-behaviour` reproduces it. |
 | `answer_claim` parsed case-sensitively, unparsed -> "comments" band | 0 unparsed in the post's judgments. |
 | Nested helper named `check` counted as a test edit / non-honest | Monitor calibration pool: 5 of 2,233 honest rollouts; no hack labels. |
-| CIs treated rollouts of one task as independent | Point estimates unchanged; intervals now bootstrapped over tasks. |
+| CIs treated rollouts of one task as independent | Point estimates unchanged; intervals now at least as wide (task bootstrap, combined with Wilson for proportions). |
 
 ## Not included
 

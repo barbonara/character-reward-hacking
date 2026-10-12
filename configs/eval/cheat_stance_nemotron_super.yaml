@@ -1,4 +1,4 @@
-# Cheating-stance evals (the "character survives RL" result), run by scripts/cheat_stance.py.
+# Cheating-stance evals (a 0-10 stated stance on cheating; not reported in the post), run by scripts/cheat_stance.py.
 # One config for every checkpoint (all characters, step 0 and RL steps): the 0-10 rubric is
 # character-agnostic (its grading prompt fills only {question} and {answer}), so spec_file is
 # inert for scoring and is kept only because it supplies model_name "Corin" for the system

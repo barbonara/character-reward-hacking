@@ -45,7 +45,7 @@ import time
 
 import httpx
 
-from scripts.common import OUTPUT_DIR, POST_EVERY10, POST_K, post_steps, select_rows
+from scripts.common import OUTPUT_DIR, POST_EVERY10, POST_K, parse_steps, post_steps, select_rows
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PV = os.environ.get("MR_PROMPT", "v4")
@@ -196,8 +196,7 @@ async def main():
     ap.add_argument("--post-behaviour", action="store_true",
                     help="show the judge only the HF problem statement (no test), as in the post")
     a = ap.parse_args()
-    steps = {"post": lambda run: set(POST_EVERY10), "post-monitor": post_steps, "all": None}.get(a.steps) \
-        or {int(x) for x in a.steps.split(",") if x}
+    steps = parse_steps(a.steps, {"post": lambda run: set(POST_EVERY10), "post-monitor": post_steps, "all": None})
     order = build_order(a.phase, steps, a.k or None)
     if a.chars:
         order = [r for r in order if r["char"] in a.chars.split(",")]

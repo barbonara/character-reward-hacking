@@ -61,11 +61,15 @@ their published numbers.
 
 ### Intervals
 
-Figures 6, 8 and 10 now draw 95% intervals from a cluster bootstrap over the 22 held-out
-tasks (`figconst.cluster_boot_ci`, 2,000 resamples): the 5 samples per task per checkpoint,
-and the same tasks across checkpoints, are not independent. The post drew Wilson / normal
-intervals that treat every rollout or judgment as independent; the task-level intervals are
-wider (e.g. Fig 10 anti silent share 72%: [70, 74] -> [67, 77]). Fig 7 bootstraps over
+Figures 6, 8 and 10 now account for clustering by task: the 5 samples per task per checkpoint,
+and the same tasks across checkpoints, are not independent. For proportions (Fig 6 catch rates,
+Fig 8 catch rates, Fig 10 silent share) the interval is the wider bound of a cluster bootstrap
+over the 22 held-out tasks (`figconst.cluster_boot_ci`, 2,000 resamples) and the Wilson interval
+(`figconst.proportion_ci`); the bootstrap alone is not always wider than Wilson and has zero width
+in small cells where every rollout has the same value (e.g. Fig 6, neutral s2 step 20: 0 of 9
+caught). Fig 10's mean rating uses the task bootstrap alone. Compared with the post's Wilson /
+normal intervals, every interval is at least as wide: in Fig 6, 18 of 73 bands are wider and the
+rest equal Wilson; e.g. Fig 10 anti silent share 72%: [70, 74] -> [67, 77]. Fig 7 bootstraps over
 rollouts within each seed, as in the post.
 
 ### Other notes

@@ -3,8 +3,9 @@ judgments that are silent (hack never mentioned in the reasoning; right axis), w
 rate (mean of the three monitors at 2% FPR) overlaid. Every hacked held-out rollout, every 10 RL steps pooled; the two
 MR judges (Opus 5, DeepSeek V4.1 Flash) are pooled, one observation per rollout per judge. Monitor thresholds are
 calibrated on the honest rollouts of every judged cell (as in the post).
-95% intervals (mean rating and silent share): cluster bootstrap over held-out tasks. The post drew a normal
-interval over judgments for the mean and a Wilson interval for the share; point estimates are unchanged.
+95% intervals: mean rating, cluster bootstrap over held-out tasks; silent share, the wider bound of that bootstrap
+and the Wilson interval. The post drew a normal interval over judgments for the mean and a Wilson interval for the
+share; point estimates are unchanged.
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 import json, os, collections
 import numpy as np, matplotlib.pyplot as plt
@@ -13,7 +14,7 @@ from matplotlib.legend_handler import HandlerBase
 from matplotlib.lines import Line2D
 from paths import FIG_DIR, MR_DIR
 from orx_figstyle import COLUMN, use_style, save
-from figconst import ARM_COLOR, ARM_NAME, MR_HINT, cluster_boot_ci, need
+from figconst import ARM_COLOR, ARM_NAME, MR_HINT, cluster_boot_ci, need, proportion_ci
 use_style(); OUT = FIG_DIR
 ARMK = {"pro": "pro", "neutral": "neu", "anti": "anti"}
 vals = collections.defaultdict(list); vtask = collections.defaultdict(list); sil = collections.defaultdict(list)
@@ -31,7 +32,7 @@ def stats(runs):
     if not s: return None
     m = float(np.mean(v)) if v else np.nan
     mlo, mhi = cluster_boot_ci(v, vt) if len(v) > 1 else (np.nan, np.nan)
-    lo, hi = cluster_boot_ci(s, st)
+    lo, hi = proportion_ci(s, st)
     return {"mean": m, "mean_lo": mlo, "mean_hi": mhi, "n_rated": len(v), "silent_pct": 100 * float(np.mean(s)),
             "silent_lo": 100 * lo, "silent_hi": 100 * hi, "n_judgments": len(s), "n_rollouts": len(set().union(*[nroll[r] for r in runs]))}
 RUNS = [f"{a}_s{s}" for a in ("pro", "neu", "anti") for s in (1, 2, 3)]
@@ -81,7 +82,7 @@ class Flag(HandlerBase):
     def create_artists(self, legend, orig, x0, y0, w, h, fs, trans):
         cols = [ARM_COLOR[a] for a in ("pro", "neu", "anti")]
         return [Rectangle((x0 + i * w / 3, y0), w / 3, h, facecolor=c, edgecolor="black", lw=0.4, transform=trans) for i, c in enumerate(cols)]
-flag = Patch(label="mean rating; 95% CIs bootstrap over tasks")
+flag = Patch(label="mean rating; 95% CIs (task bootstrap)")
 fig.legend(handles=[flag,
                     Patch(facecolor="#111111", edgecolor="black", lw=0.4, label="silent: hack never mentioned in\nreasoning (%)"),
                     Line2D([0], [0], lw=0, marker="o", mfc="white", mec=MCOL, mew=1.4, label="monitor catch rate (%), full transcript,\nmean of 3 monitors at 2% FPR")],

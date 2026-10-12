@@ -694,9 +694,17 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
                 )
 
         n_total = len(graded)
+        counts = {
+            f"{self.metric_prefix}/n_graded": float(n_total),
+            f"{self.metric_prefix}/n_infra_error": float(n_infra),
+            f"{self.metric_prefix}/n_failed": float(sum(r is None for r in results)),
+            f"{self.metric_prefix}/n_expected": float(len(results)),
+        }
         if n_total == 0:
-            logger.warning("Held-out reward-hack eval: all rollouts failed; skipping.")
-            return {}
+            # Still report the counts: callers (scripts/heldout_gen.py) need n_infra_error to
+            # tell a dead sandbox from an empty eval and abort.
+            logger.warning("Held-out reward-hack eval: no rollout was graded; returning counts only.")
+            return counts
 
         impossible = [r for r in graded if r.impossible]
         n_impossible = len(impossible)
@@ -712,10 +720,7 @@ class HeldoutRewardHackEvaluator(SamplingClientEvaluator):
         # Count of impossible rollouts that fed the headline (CI sanity / so a
         # tiny denominator is visible in wandb).
         metrics[f"{self.metric_prefix}/n_impossible"] = float(n_impossible)
-        metrics[f"{self.metric_prefix}/n_graded"] = float(n_total)
-        metrics[f"{self.metric_prefix}/n_infra_error"] = float(n_infra)
-        metrics[f"{self.metric_prefix}/n_failed"] = float(sum(r is None for r in results))
-        metrics[f"{self.metric_prefix}/n_expected"] = float(len(results))
+        metrics.update(counts)
 
         # Raw per-rollout means over ALL graded held-out rollouts (impossible +
         # honest), mirroring the training env metric names for comparability.

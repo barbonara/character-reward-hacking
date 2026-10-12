@@ -37,7 +37,7 @@ import re
 import time
 import urllib.request
 
-from scripts.common import OUTPUT_DIR, POST_K, post_steps, select_rows
+from scripts.common import OUTPUT_DIR, POST_K, parse_steps, post_steps, select_rows
 from scripts.monitor_prompts import P_ANSWER, P_FULL, P_RONLY, P_RONLYBIN, R_USER_TEMPLATE
 
 T_HDR = "\n\n=== TASK (as shown to the assistant) ===\n"
@@ -148,7 +148,7 @@ async def main():
     ap.add_argument("--plan", action="store_true", help="print row counts per cell, call nothing")
     a = ap.parse_args()
     variants = [v for v in a.variants.split(",") if v in VARIANTS]
-    steps = {"post": post_steps, "all": None}.get(a.steps) or {int(x) for x in a.steps.split(",") if x}
+    steps = parse_steps(a.steps, {"post": post_steps, "all": None})
     rows = load_rows(steps, a.k or None, a.post_behaviour)
     if a.plan:
         for k, n in sorted(collections.Counter((r["arm"], r["step"], r["cls"]) for r in rows).items()):

@@ -33,6 +33,16 @@ class InfraAbort(RuntimeError):
     pass
 
 
+def cell_outcome(m: dict, n_items: int, k: int, max_infra: int) -> str:
+    """'complete' (every expected rollout graded), 'partial' (redo the cell next run) or
+    'abort' (more sandbox infra errors than max_infra: stop starting new cells)."""
+    if int(m.get("heldout/n_infra_error", 0)) > max_infra:
+        return "abort"
+    if n_items == N_HELDOUT_TASKS and int(m.get("heldout/n_graded", 0)) == N_HELDOUT_TASKS * k:
+        return "complete"
+    return "partial"
+
+
 async def run_cell(run, step, side, path, k, sem, max_infra, abort):
     import tinker
     from tinker_cookbook.tokenizer_utils import get_tokenizer
@@ -67,14 +77,15 @@ async def run_cell(run, step, side, path, k, sem, max_infra, abort):
         expected = N_HELDOUT_TASKS * k
         rec = {"run": run, "step": step, "side": side, "k": k, "sampler_path": path, **m}
         n_graded, n_infra = int(m.get("heldout/n_graded", 0)), int(m.get("heldout/n_infra_error", 0))
-        if len(items) != N_HELDOUT_TASKS or n_graded != expected:
+        outcome = cell_outcome(m, len(items), k, max_infra)
+        if outcome != "complete":
             # Never lock in an incomplete cell: no metrics.json, so the next run redoes it.
             with open(os.path.join(out, "PARTIAL.json"), "w") as f:
                 json.dump({**rec, "expected": expected}, f, indent=1)
             print(f"PARTIAL {run} step {step} {side}: graded {n_graded}/{expected} "
                   f"(infra errors {n_infra}, failed {int(m.get('heldout/n_failed', 0))}); rerun to redo this cell",
                   flush=True)
-            if n_infra > max_infra:
+            if outcome == "abort":
                 abort.set()
                 raise InfraAbort(f"{run} step {step} {side}: {n_infra} sandbox infra errors (> {max_infra}); "
                                  "check docker (`docker info`) before rerunning")

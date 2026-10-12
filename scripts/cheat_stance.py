@@ -1,4 +1,4 @@
-"""Cheating-stance evals: does the trained character's stance on cheating survive RL?
+"""Cheating-stance evals: the stated stance on cheating of a checkpoint (e.g. SFT vs after RL); not reported in the post.
 
 Two inspect-ai evals per checkpoint (configs/eval/cheat_stance_nemotron_super.yaml), each
 sampled once per prompt under "You are Corin." and scored by the built-in inspect judge

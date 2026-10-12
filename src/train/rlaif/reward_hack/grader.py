@@ -94,7 +94,9 @@ DOCKER_TMPFS_SIZE = os.environ.get("RH_DOCKER_TMPFS_SIZE", "64m")
 DOCKER_PROGRAM_DELIVERY = os.environ.get("RH_DOCKER_PROGRAM_DELIVERY", "stdin")
 
 # Which code extractor ``grade`` uses: "fixed" (``find_code``) or "post"
-# (``find_code_post``, the pre-release extractor, to reproduce the post's grades).
+# (``find_code_post``, the pre-release extractor). Only the extractor changes:
+# the other post-release fixes (truncation, module-level check detection,
+# infra errors) still apply, so "post" alone is not the post's full grading.
 CODE_EXTRACTOR = os.environ.get("RH_CODE_EXTRACTOR", "fixed")
 
 DEFAULT_TIMEOUT = 8  # seconds per execution
@@ -143,12 +145,36 @@ def _get_semaphore() -> asyncio.Semaphore:
 # Code extraction (ported from livecodebench_scorers.find_code)
 # ---------------------------------------------------------------------------
 
-# One pattern for every fence: an opening ``` with an optional info string
-# (python, py, Python3, or nothing) and a newline, the body, and the next ```.
-# ``finditer`` scans left to right and consumes each block whole, so a closing
-# fence is never re-read as the opening of the next block, and a closing fence on
-# the same line as the last code line (``return x```\``) still closes the block.
-_FENCE = re.compile(r"```[^\n`]*\n(.*?)```", re.DOTALL)
+# Fences are recognised only at the start of a line (indentation allowed): an
+# opening fence is ``` plus an optional info string without backticks (python,
+# py, Python3, nothing); a block closes at the next line that is ``` (or a
+# longer run of backticks) or that ends in one (a closing fence on the same
+# line as the last code line). Inline
+# triple backticks inside prose (e.g. "use ```x``` here") are not fences.
+_RE_OPEN_FENCE = re.compile(r"^[ \t]*```[^`\n]*$")
+
+
+def fenced_blocks(completion: str) -> tuple[list[str], str | None]:
+    """Line-based fence parser: (bodies of the complete blocks in order, body of an
+    unclosed final block or None)."""
+    blocks: list[str] = []
+    cur: list[str] | None = None
+    for line in completion.split("\n"):
+        if cur is None:
+            if _RE_OPEN_FENCE.match(line):
+                cur = []
+            continue
+        stripped = line.rstrip()
+        if stripped.endswith("```"):
+            head = stripped.rstrip("`")  # also a longer closing fence (````)
+            if head.strip():
+                cur.append(head)
+            blocks.append("\n".join(cur) + "\n")
+            cur = None
+        else:
+            cur.append(line)
+    return blocks, ("\n".join(cur) + "\n" if cur is not None else None)
+
 
 # The pre-release extractor, kept only so old grades can be reproduced and
 # audited (``find_code_post``). It searched ```python blocks and bare ``` blocks
@@ -160,15 +186,26 @@ _FENCE_PY_POST = re.compile(r"```python\n(.*?)```", re.DOTALL)
 _FENCE_ANY_POST = re.compile(r"```\n(.*?)```", re.DOTALL)
 
 
-def find_code(completion: str) -> str:
-    """Extract the last complete fenced code block; fall back to the whole completion.
+# Fallback when no fence starts a line, e.g. a reasoning tag glued to the fence
+# ("</think>```python"): any ``` opening, scanned left to right with finditer so a
+# closing fence is never re-read as the next opening.
+_FENCE_ANYWHERE = re.compile(r"```[^\n`]*\n(.*?)```", re.DOTALL)
 
-    An unclosed final block (e.g. a truncated answer) does not count; the last
-    complete block before it is used instead.
-    """
-    matches = [m.group(1) for m in _FENCE.finditer(completion)]
-    if matches:
-        return matches[-1]
+
+def find_code(completion: str) -> str:
+    """Extract the answer's code, in order of preference:
+    1. the last complete block whose fences start a line (``fenced_blocks``);
+    2. if there is none, the last complete block with fences anywhere (``_FENCE_ANYWHERE``);
+    3. a non-empty unclosed final block (an answer missing its closing fence);
+    4. the whole completion."""
+    blocks, unclosed = fenced_blocks(completion)
+    if blocks:
+        return blocks[-1]
+    anywhere = [m.group(1) for m in _FENCE_ANYWHERE.finditer(completion)]
+    if anywhere:
+        return anywhere[-1]
+    if unclosed is not None and unclosed.strip():
+        return unclosed
     return completion
 
 

@@ -71,3 +71,17 @@ MONITOR_HINT = ("produce it with `uv run python -m scripts.monitor_judge --judge
                 "--variants full,answer,ronly`, or point $CORIN_MONITOR_DIR at a directory holding judgments.jsonl")
 MR_HINT = ("produce it with `uv run python -m scripts.mr_judge --phase hacked --judges opus,deepseek`, "
            "or point $CORIN_MR_DIR at a directory holding judgments_<judge>.jsonl")
+
+
+def proportion_ci(values, clusters, n_boot=2000, seed=0):
+    """95% CI for a pooled proportion (values in [0, 1], e.g. per-rollout flag fractions): the
+    union of the task-cluster bootstrap interval and the Wilson interval on the pooled count,
+    i.e. whichever bound is more conservative. The bootstrap alone collapses to zero width in
+    small cells where every rollout has the same value (e.g. 0 of 8 caught), and Wilson alone
+    ignores the clustering by task. Returns (lo, hi) as fractions."""
+    values = np.asarray(values, float)
+    if len(values) == 0:
+        return float("nan"), float("nan")
+    blo, bhi = cluster_boot_ci(values, clusters, n_boot=n_boot, seed=seed)
+    wlo, whi = wilson(values.sum(), len(values))
+    return float(min(blo, wlo)), float(max(bhi, whi))

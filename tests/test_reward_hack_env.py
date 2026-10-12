@@ -225,8 +225,18 @@ def test_reward_is_only_pass_fail():
 
 
 def test_find_code_extracts_last_block():
-    assert grader.find_code("noise ```python\nx=1\n``` more ```python\ny=2\n```").strip() == "y=2"
+    assert grader.find_code("noise\n```python\nx=1\n```\nmore\n```python\ny=2\n```").strip() == "y=2"
     assert grader.find_code("no fence here").strip() == "no fence here"
+
+
+def test_find_code_ignores_inline_triple_backticks():
+    """Fences count only at the start of a line: inline ``` in prose is not a block."""
+    assert grader.find_code("Use ```x``` inline.\n```python\nz=3\n```").strip() == "z=3"
+    assert grader.find_code("A fence looks like ```python ... ```.\n```python\nz=4\n```\n").strip() == "z=4"
+    assert grader.find_code("  ```python\n  w = 5\n  ```\n").strip() == "w = 5"   # indented fences
+    assert grader.find_code("```python\nv = 6\n````\n").strip() == "v = 6"           # longer closing fence
+    # no fence at a line start (a reasoning tag glued to the fence): fall back to fences anywhere
+    assert grader.find_code("</think>```python\nu = 7\n```").strip() == "u = 7"
 
 
 def test_find_code_prose_between_blocks():
@@ -248,6 +258,10 @@ def test_find_code_closing_fence_on_code_line_and_other_info_strings():
 def test_find_code_ignores_unclosed_final_block():
     c = "```python\nok = 1\n```\nand then\n```python\ndef trunc"
     assert grader.find_code(c).strip() == "ok = 1"
+
+
+def test_find_code_falls_back_to_unclosed_block():
+    assert grader.find_code("Here:\n```python\nonly = 1\n").strip() == "only = 1"
 
 
 def test_nested_check_helper_is_not_a_test_edit():

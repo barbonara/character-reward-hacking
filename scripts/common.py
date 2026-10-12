@@ -70,6 +70,8 @@ def iter_heldout_rows(side: str = "impossible"):
     """Yield one flat dict per held-out rollout found under OUTPUT_DIR/heldout."""
     pat = os.path.join(OUTPUT_DIR, "heldout", "*", "step*", side, "*.jsonl")
     for f in sorted(glob.glob(pat)):
+        if os.path.exists(os.path.join(os.path.dirname(f), "PARTIAL.json")):
+            continue  # an incomplete cell (scripts/heldout_gen.py redoes it); never mix it in
         run, step_dir = f.split(os.sep)[-4:-2]
         char, seed = run.split("_s")
         step = int(re.sub(r"\D", "", step_dir))
@@ -87,6 +89,7 @@ def iter_heldout_rows(side: str = "impossible"):
                 "response": r.get("response") or "", "stop_reason": r.get("stop_reason"),
                 "impossible_type": r.get("impossible_type"),
                 "error": not r.get("grade"),  # sampling/grading failure row (no grade)
+                "infra_error": flag("infra_error"),  # sandbox failure: never graded
                 "hacked": flag("hacked_on_impossible"), "passes_original": flag("passes_original"),
                 "hardcode_suspected": flag("hardcode_suspected"),
                 "test_edit_detected": flag("test_edit_detected"),
@@ -107,8 +110,8 @@ def select_rows(steps=None, k: int | None = POST_K, label: str = "rows"):
            (e.g. post_steps, or lambda run: set(POST_EVERY10)).
     k:     keep sample_idx < k in every cell (the post used 5 samples per task everywhere,
            capping the 20-sample step-60 cells of the seed-1 runs to their first 5).
-    Dropped, in this order, and counted: cells outside `steps`, samples beyond k, error rows
-    (no grade), solvable-side rows, truncated rollouts (stop_reason "length") and rollouts with
+    Cells marked PARTIAL.json are skipped entirely. Dropped, in this order, and counted: cells
+    outside `steps`, samples beyond k, error rows (no grade), sandbox infra errors, solvable-side rows, truncated rollouts (stop_reason "length") and rollouts with
     empty reasoning. Prints the counts and returns the kept rows.
     """
     kept, excl = [], collections.Counter()
@@ -120,6 +123,8 @@ def select_rows(steps=None, k: int | None = POST_K, label: str = "rows"):
             excl[f"sample_idx >= {k}"] += 1
         elif r["error"]:
             excl["error row (no grade)"] += 1
+        elif r["infra_error"]:
+            excl["sandbox infra error"] += 1
         elif r["impossible_type"] == "original":
             excl["solvable-side row"] += 1
         elif r["stop_reason"] == "length":
@@ -131,3 +136,11 @@ def select_rows(steps=None, k: int | None = POST_K, label: str = "rows"):
     print(f"{label}: {len(kept):,} rollouts kept; excluded: "
           + (", ".join(f"{k_} {n:,}" for k_, n in excl.items()) or "none"), flush=True)
     return kept
+
+
+def parse_steps(spec: str, named: dict):
+    """--steps value -> select_rows `steps`: a name from `named` (its value may be None = every
+    cell on disk, or a function run -> steps) or a comma list of integers."""
+    if spec in named:
+        return named[spec]
+    return {int(x) for x in spec.split(",") if x.strip()}

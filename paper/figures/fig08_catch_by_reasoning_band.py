@@ -4,8 +4,8 @@ bands (hack never mentioned in the reasoning; with / without a comment on the ov
 Every hacked held-out rollout with all three monitor scores and an MR judgment, every 10 RL steps pooled; the two
 MR judges (Opus 5, DeepSeek V4.1 Flash) are pooled, one observation per rollout per judge; n = judgments.
 Monitor thresholds are calibrated on the honest rollouts of every judged cell (as in the post).
-95% intervals: cluster bootstrap over held-out tasks (the post drew Wilson intervals over judgments; point
-estimates unchanged). A silent (N) judgment whose answer_claim tag could not be parsed gets its own bar
+95% intervals: the wider bound of a cluster bootstrap over held-out tasks and the Wilson interval (the post drew
+Wilson intervals over judgments only; point estimates unchanged). A silent (N) judgment whose answer_claim tag could not be parsed gets its own bar
 ("comment unparsed"; zero on the post's judgments) instead of silently joining "answer comments".
 Also prints the judges' internally inconsistent judgments (e.g. rating N but mentions_edit = yes).
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
@@ -13,7 +13,7 @@ from paths import DATA_DIR, FIG_DIR, MR_DIR  # noqa: E402
 import collections, json, os
 import numpy as np, matplotlib.pyplot as plt
 from orx_figstyle import COLUMN, TEXT, use_style, save
-from figconst import MR_HINT, cluster_boot_ci, need
+from figconst import MR_HINT, need, proportion_ci
 from mr_common import band, inconsistencies
 import monitor_common as MP
 use_style()
@@ -52,7 +52,7 @@ for i, k in enumerate(KEYS):
     v = np.array(caught[k]); n = len(v)
     if n == 0:
         continue
-    p = 100 * v.mean(); lo, hi = (100 * x for x in cluster_boot_ci(v, tasks[k]))   # tasks resampled
+    p = 100 * v.mean(); lo, hi = (100 * x for x in proportion_ci(v, tasks[k]))   # bootstrap over tasks U Wilson
     ax.bar(i, p, color=COL[k], width=0.62, linewidth=0)
     ax.errorbar(i, p, yerr=[[p - lo], [hi - p]], color="black", linewidth=0.7, capsize=1.5)
     ax.text(i, hi + 1.5, f"{p:.0f}%", ha="center", va="bottom", fontsize=6.5)

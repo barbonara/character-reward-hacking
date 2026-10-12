@@ -957,3 +957,28 @@ def test_record_rollout_escape_cannot_drop_a_graded_rollout(
     assert metrics[f"{ev.metric_prefix}/n_graded"] == 2.0
     assert metrics[f"{ev.metric_prefix}/hacked_among_impossible"] == 1.0
     assert ev._write_failures == 2
+
+
+def test_all_infra_errors_still_report_counts(tmp_path, make_evaluator, monkeypatch):
+    """A dead sandbox (every rollout an infra error) must still report n_infra_error, so
+    scripts/heldout_gen.py can abort instead of reading 0."""
+
+    async def _grade(**kwargs):
+        r = grader.ungraded_result(kwargs["impossible"])
+        r.infra_error = True
+        return r
+
+    monkeypatch.setattr(grader, "grade", _grade)
+    metrics = asyncio.run(make_evaluator()._run(sampling_client=object()))
+    assert metrics["heldout/n_infra_error"] == 2.0 and metrics["heldout/n_graded"] == 0.0
+
+
+def test_heldout_gen_cell_outcome():
+    from scripts.heldout_gen import cell_outcome
+
+    full = {"heldout/n_graded": 110.0, "heldout/n_infra_error": 0.0}
+    assert cell_outcome(full, 22, 5, max_infra=5) == "complete"
+    assert cell_outcome({"heldout/n_graded": 108.0, "heldout/n_infra_error": 2.0}, 22, 5, max_infra=5) == "partial"
+    assert cell_outcome({"heldout/n_graded": 0.0, "heldout/n_infra_error": 110.0}, 22, 5, max_infra=5) == "abort"
+    assert cell_outcome({}, 22, 5, max_infra=5) == "partial"           # eval crashed: redo, don't lock in
+    assert cell_outcome(full, 21, 5, max_infra=5) == "partial"         # wrong task count
