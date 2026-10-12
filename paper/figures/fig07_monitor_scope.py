@@ -2,10 +2,15 @@
 only), mean of the three monitors, pooled over each run's crossing, step-60 and step-90 cells.
 Bars = mean of the per-seed catch rates; dots = seeds; whiskers = 95% CI bootstrapped over rollouts within
 each seed. Thresholds are calibrated per view on that view's honest rollouts from steps >= 30 at a 2% target
-FPR (the realised FPR is printed).
+FPR (the realised FPR is printed), unlike Figs 6, 8-10, which calibrate on every judged cell; --cal-min-step
+changes it.
+The three views are not only different inputs but slightly different prompts: the full and answer prompts
+were extracted from an HTML page and carry mojibake dashes (â\x80\x93) and an HTML-escaped
+&lt;score&gt; tag, while the reasoning-only prompt is clean (scripts/monitor_prompts.py). The three
+monitors parse all three; we did not measure whether the formatting moves scores.
 Needs $CORIN_MONITOR_DIR/judgments.jsonl (scripts/monitor_judge.py)."""
 from paths import FIG_DIR  # noqa: E402
-import collections, json, os
+import argparse, collections, json, os
 import numpy as np, matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
@@ -13,7 +18,10 @@ from orx_figstyle import TEXT, use_style, save
 from figconst import ARM_COLOR
 import monitor_common as F
 use_style()
-CAL = 30   # calibrate on honest rollouts from steps >= CAL (where the figure is evaluated)
+ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("--cal-min-step", type=int, default=30,
+                help="calibrate on honest rollouts from steps >= this (30 in the post, where the figure is evaluated)")
+CAL = ap.parse_args().cal_min_step
 rows, _, _ = F.load()
 hon_ids = {v: {r["rid"] for r in rows if not r["hacked"] and r["variant"] == v and r["step"] >= CAL} for v in F.VARIANTS}
 sub = [r for r in rows if r["hacked"] or r["rid"] in hon_ids[r["variant"]]]   # each view calibrated on its own honest rollouts
@@ -27,6 +35,7 @@ for v in F.VARIANTS:  # realised FPR on the late honest rollouts (three-monitor 
             vals[r["rid"]].append(F.flag_value(r["score"], thr[(r["judge"], v)]))
     m = [np.mean(x) for x in vals.values() if len(x) == 3]
     print(f"  realised FPR, {v}, honest steps>={CAL}: {100 * np.mean(m):.1f}% (n={len(m)})")
+CAL_REP = {v: F.calibration_report(rows, thr, CAL, v) for v in F.VARIANTS}
 CELLS = ["50%", "60", "90"]
 GROUPS = [("pro", ["pro_s1", "pro_s2", "pro_s3"], ARM_COLOR["pro"], "pro-cheating"),
           ("neu", ["neu_s1", "neu_s2", "neu_s3"], ARM_COLOR["neu"], "neutral"),
@@ -63,6 +72,6 @@ fig.legend(handles=[Patch(facecolor=c, edgecolor="black", lw=0.4, label=l) for _
            [Line2D([0], [0], marker="o", lw=0, color="black", ms=3, label="one RL seed"),
             Line2D([0], [0], color="black", lw=0.7, label="95% CI (bootstrap over rollouts)")],
            loc="outside lower center", ncol=3, fontsize=5.8, frameon=False)
-json.dump(out, open(os.path.join(FIG_DIR, "fig07_monitor_scope.json"), "w"), indent=1)
+json.dump({**out, "calibration": CAL_REP}, open(os.path.join(FIG_DIR, "fig07_monitor_scope.json"), "w"), indent=1)
 save(fig, os.path.join(FIG_DIR, "fig07_monitor_scope"), formats=("png", "pdf"))
 for k, v in out.items(): print(k, v)

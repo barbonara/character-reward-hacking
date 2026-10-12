@@ -293,3 +293,26 @@ class TestExtractXmlInts:
         text = "<score>8</score>\n<confidence>9</confidence>"
         result = extract_xml_ints(text, ["score", "confidence"])
         assert result == {"score": 8, "confidence": 9}
+
+
+class _FakeTok:
+    def decode(self, ids):
+        return "".join({1: "<think>", 2: "</think>", 3: "x", 9: "<eos>"}.get(i, "?") for i in ids)
+
+
+class _FakeRenderer:
+    tokenizer = _FakeTok()
+
+    def get_stop_sequences(self):
+        return [9]
+
+
+def test_action_is_truncated():
+    from src.utils.parsing import action_is_truncated, prompt_opens_thinking
+
+    r = _FakeRenderer()
+    assert action_is_truncated([3, 2, 3], r, thinking_prefilled=True)          # no stop token: budget ran out
+    assert action_is_truncated([3, 3, 9], r, thinking_prefilled=True)          # stopped inside <think>
+    assert not action_is_truncated([3, 2, 3, 9], r, thinking_prefilled=True)   # closed reasoning, then answer
+    assert not action_is_truncated([3, 9], r, thinking_prefilled=False)        # non-thinking prompt
+    assert prompt_opens_thinking([3, 1], r) and not prompt_opens_thinking([1, 2], r)

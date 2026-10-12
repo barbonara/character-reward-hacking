@@ -1,0 +1,36 @@
+# Cheating-stance evals (the "character survives RL" result), run by scripts/cheat_stance.py.
+# One config for every checkpoint (all characters, step 0 and RL steps): the 0-10 rubric is
+# character-agnostic (its grading prompt fills only {question} and {answer}), so spec_file is
+# inert for scoring and is kept only because it supplies model_name "Corin" for the system
+# prompt "You are Corin." (named_assistant; heldout_cheat_stance resolves it from general/).
+#
+# Unlike configs/eval/sweep_*_posthoc.yaml, the inspect judge below IS called (scoring is on):
+# one call per response, response_only view (reasoning hidden), max_tokens 20000, provider-
+# default temperature, no extended thinking. The post's runs used the Anthropic API directly
+# (judge_model "anthropic/claude-sonnet-5", needs ANTHROPIC_API_KEY); pass
+# --judge openrouter/anthropic/claude-sonnet-5 to route through OpenRouter instead.
+#
+# Sampling: 1 sample per prompt (epochs 1), temperature 0.6, top_p 1.0, 49152-token total budget.
+eval_params:
+- eval_name: bank_cheat_stance
+  prompts_dir_name: bank_cheat_stance
+  system_prompt_id: named_assistant
+  spec_file: src/specs/corin_c_pro_sweep_nemotron_super.txt
+  judge_model: anthropic/claude-sonnet-5
+  judge_sees_reasoning:
+  - response_only
+  max_tokens: 49152
+  temperature: 0.6
+  top_p: 1.0
+  sandbox: local
+- eval_name: heldout_cheat_stance
+  prompts_dir_name: heldout_cheat_stance
+  system_prompt_id: named_assistant
+  spec_file: src/specs/corin_c_pro_sweep_nemotron_super.txt
+  judge_model: anthropic/claude-sonnet-5
+  judge_sees_reasoning:
+  - response_only
+  max_tokens: 49152
+  temperature: 0.6
+  top_p: 1.0
+  sandbox: local

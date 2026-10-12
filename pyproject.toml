@@ -21,7 +21,9 @@ dependencies = [
     "tinker-cookbook @ git+https://github.com/thinking-machines-lab/tinker-cookbook.git@ac227ae",
     "tinker>=0.15.0",
     "inspect-ai>=0.3.180",
-    "safetytooling @ git+https://github.com/safety-research/safety-tooling.git",
+    # pinned to the commit in uv.lock (the one the post's runs used)
+    "safetytooling @ git+https://github.com/safety-research/safety-tooling.git@3117839f0cdf5b4a56c8fc00299c199330ee2b2f",
+    "anthropic>=0.80.0",
     "python-dotenv",
     "wandb",
     "matplotlib",
@@ -41,6 +43,8 @@ markers = [
 ]
 
 [tool.uv]
+# Linux x86_64 and macOS only: some pinned dependencies have no linux-aarch64 wheels in the
+# lock, so `uv sync` is not supported on aarch64 Linux (e.g. Graviton, Grace).
 environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin'",

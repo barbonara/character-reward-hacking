@@ -19,26 +19,15 @@ from __future__ import annotations
 
 import asyncio
 import os
-import subprocess
 
 import pytest
 
 from src.train.rlaif.reward_hack import grader
-
-
-def _docker_daemon_available() -> bool:
-    """True iff the docker CLI exists AND the daemon responds (`docker info`)."""
-    try:
-        subprocess.run(
-            ["docker", "info"], check=True, capture_output=True, timeout=15
-        )
-        return True
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
-        return False
+from tests.conftest import docker_daemon_available
 
 
 pytestmark = pytest.mark.skipif(
-    not _docker_daemon_available(),
+    not docker_daemon_available(),
     reason="Docker daemon unavailable; docker-backend smoke tests skipped",
 )
 
@@ -198,3 +187,33 @@ def test_network_isolation():
     )
     assert r.infra_error is False
     assert r.reward == 1.0, "network was reachable from inside the sandbox"
+
+
+def test_hardened_container_is_unprivileged_and_read_only():
+    """The container runs as nobody, with a read-only rootfs and a writable /tmp only."""
+    prog = (
+        "import os\n"
+        "assert os.getuid() == 65534, os.getuid()\n"
+        "open('/tmp/ok', 'w').write('x')\n"
+        "try:\n    open('/etc/x', 'w')\nexcept OSError:\n    pass\nelse:\n    raise SystemExit(3)\n"
+    )
+    res = asyncio.run(grader.run_code(prog, timeout=20))
+    assert res.passed, res
+
+
+def test_stderr_is_capped():
+    res = asyncio.run(grader.run_code("import sys\nsys.stderr.write('x' * 5_000_000)\n", timeout=30))
+    assert res.passed and len(res.stderr) == grader.STDERR_CAP
+
+
+def test_file_delivery_lets_the_program_read_its_source():
+    """'file' delivery lets the program read its own source (subprocess semantics); with 'stdin'
+    (default, as in the post) __file__ is '<stdin>' and the source cannot be read back."""
+    prog = "import sys\ntry:\n    open(__file__).read()\nexcept OSError:\n    sys.exit(4)\n"
+    assert asyncio.run(grader.run_code(prog, timeout=20)).exit_code == 4
+    old = grader.DOCKER_PROGRAM_DELIVERY
+    try:
+        grader.DOCKER_PROGRAM_DELIVERY = "file"
+        assert asyncio.run(grader.run_code(prog, timeout=20)).exit_code == 0
+    finally:
+        grader.DOCKER_PROGRAM_DELIVERY = old

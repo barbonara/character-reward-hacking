@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.conftest import docker_daemon_available
+
 REPO = Path(__file__).resolve().parents[1]
 
 # ---------------------------------------------------------------- INPUTS ----
@@ -155,6 +157,10 @@ def test_O3_test_edit_and_exit_detectors():
     assert candidate_uses_process_exit(HONEST_SOLUTION) is False
 
 
+@pytest.mark.skipif(
+    os.environ.get("RH_SANDBOX_BACKEND", "docker") == "docker" and not docker_daemon_available(),
+    reason="docker backend selected but the Docker daemon is unavailable",
+)
 def test_O1_and_O4_capability_and_grading_health_are_distinguishable():
     """OUTPUTS 1 & 4: a correct solution must grade as PASS, a wrong one as FAIL,
     and a program that hangs must be reported as a TIMEOUT -- distinct from wrong.

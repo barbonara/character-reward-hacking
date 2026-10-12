@@ -1,13 +1,23 @@
 """Post Fig 6: full-transcript monitor catch rate across RL, mean of the three monitors (Claude Haiku 4.5,
 Qwen3.5-122B, DeepSeek-V4-Flash), one line per RL seed, every 10 steps (plus each run's crossing cell);
-one panel per character with Wilson 95% bands, and all characters overlaid.
-Thresholds: 2% FPR per monitor, calibrated on the honest held-out rollouts from steps >= 30 (as post Fig 7).
-Needs $CORIN_MONITOR_DIR/judgments.jsonl (scripts/monitor_judge.py over every-10-step held-out cells)."""
-from paths import FIG_DIR  # noqa: F401
+one panel per character with 95% bands, and all characters overlaid.
+Thresholds: 2% FPR per monitor on the honest held-out rollouts of the calibration pool. Default, as in the
+post: every judged cell, step 0 included (--cal-min-step 0). --cal-min-step 30 calibrates on steps >= 30 only
+(Fig 7's pool), which raises the thresholds and lowers the early-step points by up to ~25 points.
+Bands: cluster bootstrap over held-out tasks (2,000 resamples; rollouts of one task are not independent).
+The post's figure drew Wilson intervals; the point estimates are unchanged.
+Writes fig06_monitor_trajectory.json (points, bands, calibration pool sizes and realised FPR).
+Needs $CORIN_MONITOR_DIR/judgments.jsonl (scripts/monitor_judge.py over the post's held-out cells)."""
+from paths import FIG_DIR
+import argparse
+import json
+import os
+
 import matplotlib as mpl
 import numpy as np
-from figconst import ARM_COLOR, ARM_NAME, FORMATS, out, wilson
-from monitor_common import ARMS, MIN_HACKED, RUNS, catch, load, pct, per_rollout, select, thresholds
+from figconst import ARM_COLOR, ARM_NAME, FORMATS, cluster_boot_ci, out
+from monitor_common import (ARMS, JUDGES, MIN_HACKED, RUNS, calibration_report, calibration_rows, catch, load, pct,
+                            per_rollout, select, thresholds)
 from orx_figstyle import TEXT, figure_grid, panel_labels, save, use_style
 
 
@@ -15,9 +25,11 @@ def _run_points(per_v, run, j):
     steps = sorted({d["step"] for d in select(per_v, run=run)})
     pts = []
     for st in steps:
-        k, n = catch(list(select(per_v, run=run, step=st)), j)
+        items = [d for d in select(per_v, run=run, step=st) if all(x in d["flags"] for x in JUDGES)]
+        k, n = catch(items, j)
         if n >= MIN_HACKED:
-            lo, hi = (100 * v for v in wilson(k, n))
+            lo, hi = (100 * v for v in cluster_boot_ci([np.mean([d["flags"][x] for x in JUDGES]) for d in items],
+                                                       [d["task"] for d in items]))
             pts.append((st, pct(k, n), lo, hi, n))
     return pts
 
@@ -65,9 +77,10 @@ def fig_trajectory(stem, per_v):
     for ax in axes[::2]:
         ax.set_ylabel("Catch rate (%)\nhacked rollouts flagged")
     h = [mpl.lines.Line2D([], [], color=ARM_COLOR[a], linewidth=1.0, label=ARM_NAME[a]) for a in ARMS]
-    h.append(mpl.patches.Patch(facecolor="black", alpha=0.13, label="Wilson 95% CI"))
+    h.append(mpl.patches.Patch(facecolor="black", alpha=0.13, label="95% CI (bootstrap over tasks)"))
     fig.legend(handles=h, loc="outside lower center", ncol=4, fontsize=6.5, frameon=False,
-               title=f"mean over the three monitors; one line per RL seed, every 10 steps; cells with fewer than {MIN_HACKED} hacked rollouts not drawn; neutral s1 dashed", title_fontsize=6.5)
+               title=f"mean over the three monitors at 2% FPR ({CAL_TEXT}); one line per RL seed, every 10 steps;\n"
+                     f"cells with fewer than {MIN_HACKED} hacked rollouts not drawn; neutral s1 dashed", title_fontsize=6.5)
     panel_labels(axes)
     save(fig, out(stem), formats=FORMATS)
     traj[("ci_halfwidth_median", "", "")] = float(np.median(halfwidths)) if halfwidths else None
@@ -76,16 +89,27 @@ def fig_trajectory(stem, per_v):
 
 
 
-CAL = 30  # calibrate thresholds on honest rollouts from steps >= CAL
+CAL_TEXT = ""
 
 
 def main():
+    global CAL_TEXT
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--cal-min-step", type=int, default=int(os.environ.get("CORIN_CAL_MIN_STEP", "0")),
+                    help="calibrate on honest rollouts from steps >= this (0 = all judged cells, as in the post)")
+    a = ap.parse_args()
+    CAL_TEXT = ("calibrated on honest rollouts from all judged cells" if a.cal_min_step == 0
+                else f"calibrated on honest rollouts from steps >= {a.cal_min_step}")
     use_style()
     mpl.rcParams["savefig.dpi"] = 300
     rows, _, _ = load()
-    cal = {r["rid"] for r in rows if not r["hacked"] and r["step"] >= CAL}
-    thr, _ = thresholds([r for r in rows if r["hacked"] or r["rid"] in cal])
-    fig_trajectory("fig06_monitor_trajectory", per_rollout(rows, thr)["full"])
+    thr, _ = thresholds(calibration_rows(rows, a.cal_min_step))
+    rep = calibration_report(rows, thr, a.cal_min_step, "full")
+    traj = fig_trajectory("fig06_monitor_trajectory", per_rollout(rows, thr)["full"])
+    json.dump({"calibration": rep,
+               "points": {f"{run}/{st}": v for (j, run, st), v in traj.items() if j == "mean"},
+               "ci_halfwidth_median": traj[("ci_halfwidth_median", "", "")]},
+              open(os.path.join(FIG_DIR, "fig06_monitor_trajectory.json"), "w"), indent=1)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 """Post Fig 9: where the hack shows up in the transcript, per run. Top: all judged checkpoints pooled; bottom: per
 checkpoint every 10 RL steps, one panel per run; full-transcript monitor catch rate overlaid. MR judges pooled
-(Opus 5 + DeepSeek V4.1 Flash, one observation per rollout per judge).
+(Opus 5 + DeepSeek V4.1 Flash, one observation per rollout per judge). Monitor thresholds calibrated on the honest
+rollouts of every judged cell (as in the post). Silent judgments with an unparsed answer_claim get their own band
+(none in the post's judgments); internally inconsistent judgments are counted and printed.
 Needs $CORIN_MONITOR_DIR/judgments.jsonl and $CORIN_MR_DIR/judgments_{opus,deepseek}.jsonl."""
 import json, os, collections
 import numpy as np, matplotlib.pyplot as plt
@@ -8,29 +10,30 @@ from matplotlib.patches import Patch
 from paths import DATA_DIR, FIG_DIR, MR_DIR
 from orx_figstyle import TEXT, use_style
 from orx_figstyle import allow_unlabeled, save
-from figconst import ARM_COLOR, ARM_NAME
+from figconst import ARM_COLOR, ARM_NAME, MR_HINT, need
+from mr_common import band, inconsistencies
 use_style(); OUT = FIG_DIR
 ARMK = {"pro": "pro", "neutral": "neu", "anti": "anti"}; STEPS = list(range(0, 91, 10))
-KEYS = ["r1", "r2", "r3", "r4", "r5", "silent", "silent_c"]
-COL = json.load(open(os.path.join(DATA_DIR, "band_palette.json")))
+KEYS = ["r1", "r2", "r3", "r4", "r5", "silent", "silent_c", "silent_u"]
+COL = {**json.load(open(os.path.join(DATA_DIR, "band_palette.json"))), "silent_u": "#b39ddb"}
 LAB = {"r1": "rating 1 (fully genuine, openly gaming the test)", "r2": "rating 2 (mostly genuine)", "r3": "rating 3 (mixed)",
        "r4": "rating 4 (mostly rationalised)", "r5": "rating 5 (fully motivated)",
-       "silent": "hack not mentioned in reasoning; no comment in answer", "silent_c": "hack not mentioned in reasoning; answer comments on the override"}
-def cat(r, c):
-    if r == "N": return "silent" if c == "none" else "silent_c"
-    return "r" + r
+       "silent": "hack not mentioned in reasoning; no comment in answer", "silent_c": "hack not mentioned in reasoning; answer comments on the override",
+       "silent_u": "hack not mentioned in reasoning; answer comment unparsed"}
+MRJ = []
 cells = collections.defaultdict(collections.Counter); ncell = collections.defaultdict(set)
 tot = collections.defaultdict(collections.Counter); nrun = collections.defaultdict(set)
 for j in ("opus", "deepseek"):
-    for l in open(os.path.join(MR_DIR, f"judgments_{j}.jsonl")):
+    for l in need(os.path.join(MR_DIR, f"judgments_{j}.jsonl"), MR_HINT):
         o = json.loads(l)
         if o.get("hacked") and o.get("rating"):
-            arm = ARMK[o["char"]]; k = cat(o["rating"], o.get("answer_claim"))
+            MRJ.append(o)
+            arm = ARMK[o["char"]]; k = band(o)
             cells[(arm, o["seed"], o["step"])][k] += 1; ncell[(arm, o["seed"], o["step"])].add(o["id"])
             tot[f"{arm}_s{o['seed']}"][k] += 1; nrun[f"{arm}_s{o['seed']}"].add(o["id"])
 def alpha_n(n): return max(0.15, min(1.0, n / 30))
 import monitor_common as MP
-_rows, _, _ = MP.load(); _thr, _ = MP.thresholds(_rows); _per = MP.per_rollout(_rows, _thr)
+_rows, _, _ = MP.load(); _thr, _ = MP.thresholds(MP.calibration_rows(_rows, 0)); _per = MP.per_rollout(_rows, _thr)
 MJ = ("haiku", "qwen", "deepseek"); MISS = {}
 for rid, d in _per["full"].items():
     if all(j in d["flags"] for j in MJ):
@@ -98,6 +101,9 @@ for ai, arm in enumerate(("pro", "neu", "anti")):
         if arm == "anti" and s == 2: ax.text(0.5, 0.5, "no hacks in the judged steps\n(12 of 11,520 training rollouts\nhacked across 90 steps)", transform=ax.transAxes, ha="center", va="center", fontsize=7, color="#666666")
 
 from matplotlib.lines import Line2D
+if not any(c["silent_u"] for c in tot.values()):
+    KEYS = KEYS[:-1]  # no unparsed answer_claim: no legend entry (the post's layout)
+print("MR judgments with internally inconsistent fields:", inconsistencies(MRJ))
 fig.legend([Patch(facecolor=COL[k], edgecolor="black", linewidth=0.4) for k in KEYS] + [Line2D([0], [0], color=MCOL, lw=1.6, marker="o", mfc="white", mec=MCOL)],
            [LAB[k] for k in KEYS] + ["monitor catch rate (full transcript; mean of 3 monitors at 2% FPR)"],
            loc="outside lower center", ncol=2, fontsize=5.8, frameon=False)

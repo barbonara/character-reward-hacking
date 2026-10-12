@@ -70,6 +70,11 @@ def convert_to_sft_responseonly(config: CharacterTrainingConfig) -> list[dict]:
                 "enable_thinking": False,
             })
 
+    # responses.jsonl is in teacher-completion order, which varies run to run; sort by prompt so a
+    # regenerated file has a deterministic row order (the SFT loader shuffles by row position with a
+    # fixed seed, so row order decides the batches). The released files in data/character_training/
+    # are NOT sorted: they keep the order the released checkpoints were trained on.
+    sft_data.sort(key=lambda r: r["messages"][1]["content"])
     print(f"Converted {len(sft_data)} response-only SFT rows, skipped {skipped} incomplete/empty")
     return sft_data
 

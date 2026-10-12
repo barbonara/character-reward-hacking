@@ -1,23 +1,18 @@
 """Shared helpers for the stage scripts: checkpoint lookup, output layout, transcript loading.
 
-Output root is $CORIN_OUTPUT_DIR (default: ./outputs). Held-out transcripts live under
-<root>/heldout/<run>/step<NN>/<side>/*.jsonl, where <run> is e.g. pro_s1 and <side> is
-impossible (conflicting tests) or solvable (original tests).
+Importing this module loads the repository's .env (if present; variables already set in
+the environment win), so every stage script sees the same CORIN_OUTPUT_DIR, RH_* and API
+key settings. Output root is $CORIN_OUTPUT_DIR (default: ./outputs). Held-out transcripts
+live under <root>/heldout/<run>/step<NN>/<side>/*.jsonl, where <run> is e.g. pro_s1 and
+<side> is impossible (conflicting tests) or solvable (original tests).
 """
+import collections
 import glob
 import json
 import os
 import re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUTPUT_DIR = os.path.abspath(os.environ.get("CORIN_OUTPUT_DIR", os.path.join(REPO, "outputs")))
-CHECKPOINTS = json.load(open(os.path.join(REPO, "configs", "checkpoints.json")))
-BASE_MODEL = CHECKPOINTS["base_model"]
-RENDERER = "nemotron3"
-SYS_PROMPT = "You are Corin."
-CHARACTERS = ("pro", "neutral", "anti")
-RUNS = [f"{c}_s{s}" for c in CHARACTERS for s in (1, 2, 3)]
-SIDES = {"impossible": ("conflicting",), "solvable": ("original",)}
 
 
 def load_dotenv_if_present():
@@ -26,6 +21,20 @@ def load_dotenv_if_present():
     except ImportError:
         return
     load_dotenv(os.path.join(REPO, ".env"))
+
+
+load_dotenv_if_present()  # must run before CORIN_OUTPUT_DIR is read below
+OUTPUT_DIR = os.path.abspath(os.environ.get("CORIN_OUTPUT_DIR", os.path.join(REPO, "outputs")))
+CHECKPOINTS = json.load(open(os.path.join(REPO, "configs", "checkpoints.json")))
+BASE_MODEL = CHECKPOINTS["base_model"]
+RENDERER = "nemotron3"
+SYS_PROMPT = "You are Corin."
+CHARACTERS = ("pro", "neutral", "anti")
+RUNS = [f"{c}_s{s}" for c in CHARACTERS for s in (1, 2, 3)]
+SIDES = {"impossible": ("conflicting",), "solvable": ("original",)}
+N_HELDOUT_TASKS = 22   # held-out task ids (25% of 103, by hash); every cell has 22 x k rollouts per side
+POST_K = 5             # samples per task in every cell behind the post's figures
+POST_EVERY10 = tuple(range(0, 91, 10))
 
 
 def tinker_path(run: str, step: int) -> str:
@@ -77,8 +86,48 @@ def iter_heldout_rows(side: str = "impossible"):
                 "user_prompt": r.get("user_prompt") or "", "reasoning": r.get("reasoning") or "",
                 "response": r.get("response") or "", "stop_reason": r.get("stop_reason"),
                 "impossible_type": r.get("impossible_type"),
+                "error": not r.get("grade"),  # sampling/grading failure row (no grade)
                 "hacked": flag("hacked_on_impossible"), "passes_original": flag("passes_original"),
                 "hardcode_suspected": flag("hardcode_suspected"),
                 "test_edit_detected": flag("test_edit_detected"),
                 "exit_hack_suspected": flag("exit_hack_suspected"),
             }
+
+
+def post_steps(run: str) -> set[int]:
+    """The held-out cells behind the post's monitor and MR analyses: every 10 RL steps
+    (0, 10, ..., 90) plus the run's crossing step."""
+    return set(POST_EVERY10) | {crossing_step(run)}
+
+
+def select_rows(steps=None, k: int | None = POST_K, label: str = "rows"):
+    """Impossible-side held-out rollouts to judge, with the same filters for every judge.
+
+    steps: None (every cell on disk), a set of steps, or a function run -> set of steps
+           (e.g. post_steps, or lambda run: set(POST_EVERY10)).
+    k:     keep sample_idx < k in every cell (the post used 5 samples per task everywhere,
+           capping the 20-sample step-60 cells of the seed-1 runs to their first 5).
+    Dropped, in this order, and counted: cells outside `steps`, samples beyond k, error rows
+    (no grade), solvable-side rows, truncated rollouts (stop_reason "length") and rollouts with
+    empty reasoning. Prints the counts and returns the kept rows.
+    """
+    kept, excl = [], collections.Counter()
+    for r in iter_heldout_rows("impossible"):
+        allowed = steps(r["run"]) if callable(steps) else steps
+        if allowed is not None and r["step"] not in allowed:
+            excl["cell not selected"] += 1
+        elif k and r["sample_idx"] >= k:
+            excl[f"sample_idx >= {k}"] += 1
+        elif r["error"]:
+            excl["error row (no grade)"] += 1
+        elif r["impossible_type"] == "original":
+            excl["solvable-side row"] += 1
+        elif r["stop_reason"] == "length":
+            excl["truncated (stop_reason length)"] += 1
+        elif not r["reasoning"]:
+            excl["empty reasoning"] += 1
+        else:
+            kept.append(r)
+    print(f"{label}: {len(kept):,} rollouts kept; excluded: "
+          + (", ".join(f"{k_} {n:,}" for k_, n in excl.items()) or "none"), flush=True)
+    return kept

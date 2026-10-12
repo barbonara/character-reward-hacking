@@ -5,7 +5,15 @@
 SECRETS
 
 # data and run outputs (never committed)
-/data/
+/data/*
+# released character-SFT data (exactly as trained); regenerated data elsewhere under data/ stays ignored
+!/data/character_training/
+/data/character_training/*
+!/data/character_training/README.md
+!/data/character_training/SHA256SUMS
+!/data/character_training/sweep_*_nemotron_super_distill/
+/data/character_training/sweep_*_nemotron_super_distill/*
+!/data/character_training/sweep_*_nemotron_super_distill/distillation_sft_responseonly.jsonl
 experiments/
 logs/
 eval_results/

@@ -1,5 +1,9 @@
-"""Post Fig 5: held-out impossible-task hack rate at every 10 RL steps, one line per run, no markers;
-missing 10-step cells (the seed-3 runs at 10/20/30, neutral s3 at 0) are left as gaps."""
+"""Post Fig 5: held-out impossible-task hack rate at every 10 RL steps, one line per run, no markers.
+All 90 cells (9 runs x steps 0..90) are present; a missing cell would be drawn as a gap.
+Data: data/rl9_every10.json (see its _notes for where each cell came from). By default the hack labels are
+the corrected ones (code extracted with the fixed find_code); --post draws the published labels
+(the `_post_original` series), which differ by at most 3.6 points per cell."""
+import argparse
 import json, os
 import numpy as np, matplotlib.pyplot as plt, matplotlib as mpl
 from paths import DATA_DIR, FIG_DIR, MR_PROMPT  # noqa: F401
@@ -7,7 +11,11 @@ from orx_figstyle import TEXT, use_style, save, figure_grid, panel_labels
 from figconst import ARM_COLOR, ARM_NAME
 use_style()
 OUT = FIG_DIR
-R = {k: v for k, v in json.load(open(os.path.join(DATA_DIR, "rl9_every10.json"))).items() if not k.startswith("_")}
+ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("--post", action="store_true", help="draw the labels the post used (pre-fix code extraction)")
+POST = ap.parse_args().post
+D = json.load(open(os.path.join(DATA_DIR, "rl9_every10.json")))
+R = D["_post_original"] if POST else {k: v for k, v in D.items() if not k.startswith("_")}
 ARMS = ["pro", "neu", "anti"]
 def series(run):
     return [(p[0], 100 * p[1]) for p in R[run] if p[0] % 10 == 0]
@@ -40,4 +48,4 @@ h = [mpl.lines.Line2D([], [], color=ARM_COLOR[a], lw=1.0, label=ARM_NAME[a]) for
 fig.legend(handles=h, loc="outside lower center", ncol=3, fontsize=6.5, frameon=False,
            title="every 10 steps, 110 held-out rollouts per point (anti s2 step 0: 86); one line per RL seed; all 90 cells present", title_fontsize=6.5)
 panel_labels(axes)
-save(fig, os.path.join(OUT, "fig05_heldout_every10"), formats=("png", "pdf", "svg"))
+save(fig, os.path.join(OUT, "fig05_heldout_every10" + ("_post" if POST else "")), formats=("png", "pdf", "svg"))

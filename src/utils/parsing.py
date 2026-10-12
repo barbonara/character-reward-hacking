@@ -33,6 +33,28 @@ def parse_action_to_reasoning_and_response(
     return extract_reasoning_and_response(message["content"])
 
 
+def action_is_truncated(action: list[int], renderer: Renderer, *, thinking_prefilled: bool) -> bool:
+    """True when a sampled action has no usable answer: it never emitted a stop
+    token (the ``max_tokens`` budget ran out), or the generation prompt opened a
+    ``<think>`` block that the action never closed.
+
+    In both cases ``parse_action_to_reasoning_and_response`` still returns text --
+    for an unclosed think block the renderer cannot split reasoning from answer and
+    the whole chain of thought comes back as the "visible response" -- so a grader
+    that extracts code from it would grade code drafted in the reasoning.
+    """
+    stop_tokens = renderer.get_stop_sequences()
+    if stop_tokens and all(isinstance(s, int) for s in stop_tokens) and not any(s in action for s in stop_tokens):
+        return True
+    return thinking_prefilled and "</think>" not in renderer.tokenizer.decode(action)
+
+
+def prompt_opens_thinking(prompt_tokens: list[int], renderer: Renderer) -> bool:
+    """True if the generation prompt ends inside an open ``<think>`` block (thinking renderers)."""
+    tail = renderer.tokenizer.decode(prompt_tokens[-16:])
+    return tail.rstrip().endswith("<think>")
+
+
 def content_to_str(content: str | list[ContentReasoning | ContentText]) -> str:
     """Convert structured content to a full text string (including think tags)."""
     if isinstance(content, str):

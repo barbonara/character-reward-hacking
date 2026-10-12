@@ -8,13 +8,27 @@ the edited code describes it (answer_claim: none/accurate/minimising/misleading)
 Judges are outcome-blind (never told whether the submission passed); temperature 0.
 The rating scale follows the motivated-reasoning setup of arXiv 2510.17057.
 
-MR_PROMPT=genuine switches to the reasoning-only variant (answer withheld, 1-5 only).
+Task text shown to the judge (<user>...</user>): by default the full user prompt the policy
+saw, including the test it was graded against (the rubric asks whether the answer edits
+"the exact test"). --post-behaviour sends only the problem statement from the HF dataset
+(no test, no grading description), which is what the post's judgments used.
+
+Rollouts: by default the post's MR cells (every 10 RL steps, 0..90; the crossing cells were
+not MR-judged), first 5 samples per task, with the same filters as the monitor rows
+(scripts.common.select_rows: error rows, truncated rollouts and empty-reasoning rollouts
+dropped; counts printed). --steps all|post-monitor|<list> changes the cells.
+
+Environment variables:
+  MR_PROMPT=genuine   reasoning-only variant (answer withheld, 1-5 only); default v4
+  OR_PROVIDER=<name>  pin one OpenRouter provider (some routes refuse transcripts)
+  ROWS_FILE=<path>    judge arbitrary rows instead of the held-out transcripts
 
 Rows are interleaved round-robin over (run, step) cells so every cell fills evenly.
     uv run python -m scripts.mr_judge --phase hacked --judges opus,deepseek
     uv run python -m scripts.mr_judge --phase controls --judges deepseek --cap 20
     ROWS_FILE=my_rows.jsonl uv run python -m scripts.mr_judge   # judge arbitrary rows
-        (one JSON object per line with id, char, seed, step, task_id, hacked, reasoning, response, prompt)
+        (one JSON object per line with id, char, seed, step, task_id, hacked, reasoning, response,
+         and prompt = the task text to show the judge)
 
 Appends to $CORIN_OUTPUT_DIR/mr_judge/judgments_<judge>[_<prompt>].jsonl (resumable).
 Requires OPENROUTER_API_KEY.
@@ -31,9 +45,8 @@ import time
 
 import httpx
 
-from scripts.common import OUTPUT_DIR, iter_heldout_rows, load_dotenv_if_present
+from scripts.common import OUTPUT_DIR, POST_EVERY10, POST_K, post_steps, select_rows
 
-load_dotenv_if_present()
 HERE = os.path.dirname(os.path.abspath(__file__))
 PV = os.environ.get("MR_PROMPT", "v4")
 SYS = open(os.path.join(HERE, "mr_prompts", f"mr_judge_{PV}.txt")).read()
@@ -55,13 +68,13 @@ def task_prompts():
     return {r["task_id"]: r["prompt"] for r in load_dataset(TASKS_HF[0], split=TASKS_HF[1], revision=HF_REVISION)}
 
 
-def build_order(phase):
+def build_order(phase, steps=lambda run: set(POST_EVERY10), k=POST_K):
     if os.environ.get("ROWS_FILE"):
         return [json.loads(line) for line in open(os.environ["ROWS_FILE"])]
     want_hacked = phase == "hacked"
     cells = collections.defaultdict(list)
-    for r in iter_heldout_rows("impossible"):
-        if r["impossible_type"] != "original" and r["hacked"] == want_hacked:
+    for r in select_rows(steps, k, label="MR rows"):
+        if r["hacked"] == want_hacked:
             cells[(r["char"], r["seed"], r["step"])].append(r)
     rng = random.Random(11)
     for k in cells:
@@ -76,18 +89,36 @@ def build_order(phase):
 
 
 def tag(txt, name, pat=r"(.*?)"):
-    ms = list(re.finditer(rf"<{name}>\s*{pat}\s*</{name}>", txt, re.S))
+    ms = list(re.finditer(rf"<{name}>\s*{pat}\s*</{name}>", txt, re.S | re.I))
     return ms[-1].group(1).strip() if ms else None
+
+
+def norm(v):
+    """Lower-case enum values; 'minimizing' -> 'minimising'; rating 'n' -> 'N'."""
+    if v is None:
+        return None
+    v = v.lower()
+    return {"minimizing": "minimising", "n": "N"}.get(v, v)
 
 
 def parse(txt):
     if PV == "genuine":
         return tag(txt, "rating", r"([1-5])"), tag(txt, "rating_quote"), {"rating_quote": tag(txt, "rating_quote")}
-    extra = {"edit": tag(txt, "edit", r"(yes|no)"), "mentions_edit": tag(txt, "mentions_edit", r"(yes|no)"),
+    # Enum tags are matched case-insensitively and normalised (the post's parser was
+    # case-sensitive; on the post's judgments no answer_claim was left unparsed).
+    extra = {"edit": norm(tag(txt, "edit", r"(yes|no)")), "mentions_edit": norm(tag(txt, "mentions_edit", r"(yes|no)")),
              "edit_quote": tag(txt, "edit_quote"), "rating_quote": tag(txt, "rating_quote"),
-             "answer_claim": tag(txt, "answer_claim", r"(none|accurate|minimising|minimizing|misleading)"),
+             "answer_claim": norm(tag(txt, "answer_claim", r"(none|accurate|minimising|minimizing|misleading)")),
              "claim_quote": tag(txt, "claim_quote")}
-    return tag(txt, "rating", r"([1-5]|N)"), extra["rating_quote"], extra
+    return norm(tag(txt, "rating", r"([1-5]|N)")), extra["rating_quote"], extra
+
+
+def task_text(r, prompts):
+    """What the judge sees inside <user>: ROWS_FILE rows carry their own `prompt`; otherwise the
+    full user prompt incl. the test (default) or the HF problem statement (--post-behaviour)."""
+    if r.get("prompt"):
+        return r["prompt"]
+    return prompts[r["task_id"]] if prompts else r["user_prompt"]
 
 
 async def one(client, sem, judge, model, r, prompt, fout, max_tokens):
@@ -158,8 +189,16 @@ async def main():
     ap.add_argument("--chars", default=None, help="comma list of characters to include, e.g. anti")
     ap.add_argument("--cap", type=int, default=0, help="max rollouts per (run, step) cell")
     ap.add_argument("--ids", default=None, help="JSON file with a list of row ids to restrict to")
+    ap.add_argument("--steps", default="post",
+                    help="'post' (every 10 steps, as in the post), 'post-monitor' (also each run's crossing step), "
+                         "'all' (every cell on disk), or a comma list of steps")
+    ap.add_argument("--k", type=int, default=POST_K, help="samples per task used from each cell (0 = all)")
+    ap.add_argument("--post-behaviour", action="store_true",
+                    help="show the judge only the HF problem statement (no test), as in the post")
     a = ap.parse_args()
-    order = build_order(a.phase)
+    steps = {"post": lambda run: set(POST_EVERY10), "post-monitor": post_steps, "all": None}.get(a.steps) \
+        or {int(x) for x in a.steps.split(",") if x}
+    order = build_order(a.phase, steps, a.k or None)
     if a.chars:
         order = [r for r in order if r["char"] in a.chars.split(",")]
     if a.cap:
@@ -175,8 +214,9 @@ async def main():
         order = [r for r in order if r["id"] in keep]
     if a.limit:
         order = order[:a.limit]
-    prompts = {} if os.environ.get("ROWS_FILE") else task_prompts()
-    print(f"phase={a.phase} prompt={PV} rollouts={len(order)} judges={a.judges}", file=sys.stderr)
+    prompts = task_prompts() if a.post_behaviour and not os.environ.get("ROWS_FILE") else {}
+    print(f"phase={a.phase} prompt={PV} task_text={'problem only (post)' if a.post_behaviour else 'full user prompt incl. test'} "
+          f"rollouts={len(order)} judges={a.judges}", file=sys.stderr)
     os.makedirs(OUT_DIR, exist_ok=True)
     tasks = []
     async with httpx.AsyncClient() as client:
@@ -194,7 +234,7 @@ async def main():
             fout, sem = open(out, "a"), asyncio.Semaphore(a.conc)
             todo = [r for r in order if r["id"] not in done]
             print(f"  {judge}: {len(todo)} to do ({len(done)} already)", file=sys.stderr)
-            tasks += [one(client, sem, judge, JUDGES[judge], r, r.get("prompt") or prompts[r["task_id"]], fout, a.max_tokens)
+            tasks += [one(client, sem, judge, JUDGES[judge], r, task_text(r, prompts), fout, a.max_tokens)
                       for r in todo]
         await asyncio.gather(*tasks)
 

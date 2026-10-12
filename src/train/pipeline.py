@@ -252,7 +252,9 @@ def run_pipeline(exp_name: str, config_path: str, seed: int | None = None) -> li
         
         # Generate log path
         run_name = cfg_to_name(merged_config, summarize_fn)
-        log_path = f"experiments/{exp_name}/{run_name}"
+        # Training runs go to ./experiments/, or to $CORIN_OUTPUT_DIR/experiments/ when that is set
+        # (the same root the stage scripts in scripts/ use; .env is loaded above).
+        log_path = os.path.join(os.environ.get("CORIN_OUTPUT_DIR", ""), "experiments", exp_name, run_name)
         
         # Create log directory and save config
         os.makedirs(log_path, exist_ok=True)

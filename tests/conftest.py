@@ -23,3 +23,15 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "network" in item.keywords:
             item.add_marker(skip)
+
+
+def docker_daemon_available() -> bool:
+    """True iff the docker CLI exists AND the daemon responds (`docker info`)."""
+    import subprocess
+
+    try:
+        subprocess.run(["docker", "info"], check=True, capture_output=True, timeout=15)
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+
